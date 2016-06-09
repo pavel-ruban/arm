@@ -15,8 +15,8 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include <stdint.h>
-#include "stm32f10x_conf.h"
-#include "spi_conf.h"
+#include <stm32f10x_conf.h>
+#include <spi_binds.h>
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -59,12 +59,20 @@ void __initialize_hardware()
 {
 	/* Enable GPIOC clock */
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
 
 	/* Configure PC.4 as Output push-pull */
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+	// Configure RC522 SPI CS line 12 and reset 11 line.
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_11;
+	GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+	// Set reset line to start MFRC55 chip to work and release it's SPI interface.
+	GPIO_SetBits(GPIOB, GPIO_Pin_11 | GPIO_Pin_12);
 
 	uint16_t SPIz_Mode = SPI_Mode_Master;
 
@@ -245,3 +253,4 @@ ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
 #endif
 
 /******************* (C) COPYRIGHT 2007 STMicroelectronics *****END OF FILE****/
+

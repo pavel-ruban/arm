@@ -1,6 +1,6 @@
 # setup
 
-COMPILE_OPTS = -mcpu=cortex-m3 -mthumb -Wall -g -O0 -DDEBUG -DUSE_FULL_ASSERT -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000
+COMPILE_OPTS = -mcpu=cortex-m3 -mthumb -Wall -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000
 INCLUDE_DIRS = -I include -I system/include/cmsis -I system/include/stm32f1-stdperiph -I system/include
 LIBRARY_DIRS = -L lib
 
@@ -30,6 +30,15 @@ FIRMWARE_BIN = $(FIRMWARE).bin
 
 # all
 all: $(FIRMWARE_ELF) $(FIRMWARE_BIN)
+
+.PHONY: d
+.PHONY: o
+
+d: COMPILE_OPTS += -g -O0 -DDEBUG -DUSE_FULL_ASSERT
+d: all
+
+o: COMPILE_OPTS += -O2
+o: all
 
 NEWLIB_OUT = lib/newlib.a
 LIBSTM32_OUT = lib/libstm32.a

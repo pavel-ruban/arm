@@ -1,0 +1,9 @@
+*.swp
+*.o
+*.bin
+*.elf
+*.map
+*.Map
+*.a
+*.out
+test

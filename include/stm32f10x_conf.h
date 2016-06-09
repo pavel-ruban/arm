@@ -1,0 +1,1 @@
+/sources/arm/stm32/stm32f10x_conf.h

@@ -47,8 +47,22 @@ flash: $(FIRMWARE_BIN)
 	st-flash --reset write $(FIRMWARE_BIN) 0x08000000
 	st-info --descr
 
+.PHONY: gdbsrv
+
+.PHONY: size
+
+.PHONY: debug
+
+.PHONY: fsize
+
 gdbsrv:
 	st-util
+
+fsize:
+	arm-none-eabi-nm --print-size --size-sort --radix=d $(FIRMWARE_ELF)
+
+size:
+	arm-none-eabi-size -A -d $(FIRMWARE_ELF)
 
 debug:
 	$(GDB)  -ex 'set confirm off' -ex 'target remote :4242' -ex 'file $(FIRMWARE_ELF)'

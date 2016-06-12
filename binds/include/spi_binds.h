@@ -21,7 +21,10 @@
 #define	SPIz_PIN_MISO		GPIO_Pin_14
 #define	SPIz_PIN_MOSI		GPIO_Pin_15
 
-uint8_t spi_transmit(uint8_t byte);
+#define SKIP_RECEIVE		1
+#define RECEIVE_BYTE		0
+
+uint8_t spi_transmit(uint8_t byte, uint8_t);
 void rc522_select();
 void rc522_release();
 

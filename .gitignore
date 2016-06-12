@@ -9,3 +9,5 @@
 *.out
 test
 tags
+tools.txt
+.gdbinit

@@ -1,6 +1,6 @@
 # setup
 
-COMPILE_OPTS = -mcpu=cortex-m3 -mthumb -Wall -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000
+COMPILE_OPTS = -mcpu=cortex-m3 -mthumb -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000 #-Wall
 INCLUDE_DIRS = -I include -I system/include/cmsis -I system/include/stm32f1-stdperiph -I system/include -I binds/include
 
 LIBS_INCLUDE_DIRS = -I $(HARDWARE_LIBS_DIR)/rc522
@@ -42,7 +42,7 @@ all: $(FIRMWARE_ELF) $(FIRMWARE_BIN)
 ctags:
 	find . -type f -regex '.*\.\(s\|c\|cpp\|S\|h\|hpp\)' -follow | xargs ctags
 
-d: COMPILE_OPTS += -g -O0 -DDEBUG -DUSE_FULL_ASSERT
+d: COMPILE_OPTS += -gdwarf-2 -g3 -O0 -DDEBUG -DUSE_FULL_ASSERT
 d: all
 
 o: COMPILE_OPTS += -O2
@@ -61,7 +61,7 @@ HARDWARE_LIBS_OUT = $(HARDWARE_LIBS_DIR)/hardware_libs.a
 
 # main
 $(FIRMWARE_ELF): c_entry.o entry.o $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) $(HARDWARE_LIBS_OUT)
-	$(LD) $(LDFLAGS) c_entry.o entry.o $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) $(HARDWARE_LIBS_OUT) --output $@
+	$(LD) $(LDFLAGS) c_entry.o entry.o $(HARDWARE_LIBS_OUT) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) --output $@
 
 $(FIRMWARE_BIN): $(FIRMWARE_ELF)
 	$(OBJCP) $(OBJCPFLAGS) $< $@
@@ -82,6 +82,7 @@ flash: $(FIRMWARE_BIN)
 
 gdbsrv:
 	st-util
+	#st-util > /dev/pts/5 2>&1 &
 
 fsize:
 	arm-none-eabi-nm --print-size --size-sort --radix=d $(FIRMWARE_ELF)
@@ -90,7 +91,7 @@ size:
 	arm-none-eabi-size -A -d $(FIRMWARE_ELF)
 
 debug:
-	$(GDB)  -ex 'set confirm off' -ex 'target remote :4242' -ex 'file $(FIRMWARE_ELF)'
+	$(GDB)  -ex 'set confirm off' -iex 'target remote :4242' -iex 'file $(FIRMWARE_ELF)'
 
 # newlib.a
 NEWLIB_OBJS = 					\
@@ -147,4 +148,5 @@ $(HARDWARE_LIBS_OUT): $(HARDWARE_LIBS_OBJS)
 	$(AR) $(ARFLAGS) $@ $(HARDWARE_LIBS_OBJS)
 
 clean:
-	-rm *.o $(STD_PERIPH_DIR)/*.o /src/*.o $(NEWLIB_OUT) $(LIBSTM32_OUT) $(FIRMWARE_ELF) $(FIRMWARE_BIN) *.map
+	-find . -type f -name '*.o' -follow -exec rm {} \;
+	-rm $(BINDS_OUT) $(HARDWARE_LIBS_OUT) $(NEWLIB_OUT) $(LIBSTM32_OUT) $(FIRMWARE_ELF) $(FIRMWARE_BIN) *.map

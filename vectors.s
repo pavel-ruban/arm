@@ -9,20 +9,27 @@
 .word	mem_manage_exception
 .word	bus_fault_exception
 .word	usage_fault_exception
-.word	0, 0, 0, 0			@ Reserved addresses.
+.org	0x68
+.word	EXTI4_IRQHandler
+.org	0xDC
+.word	WRONG_IRQ_EXCEPTION
+.org	0xE0
+.word	EXTI15_10_IRQHandler
 
 
 @ End of the interrupt vector table.
 .org	253
 
 nmi_exception:
-	bl	nmi_exception		@ Infinite loop in case of hardware exception.
+	b	nmi_exception		@ Infinite loop in case of hardware exception.
 hard_fault_exception:
-	bl	hard_fault_exception		@ Infinite loop in case of hardware exception.
+	b	hard_fault_exception		@ Infinite loop in case of hardware exception.
 mem_manage_exception:
-	bl	mem_manage_exception		@ Infinite loop in case of hardware exception.
+	b	mem_manage_exception		@ Infinite loop in case of hardware exception.
 bus_fault_exception:
-	bl	bus_fault_exception		@ Infinite loop in case of hardware exception.
+	b	bus_fault_exception		@ Infinite loop in case of hardware exception.
 usage_fault_exception:
-	bl	usage_fault_exception		@ Infinite loop in case of hardware exception.
+	b	usage_fault_exception		@ Infinite loop in case of hardware exception.
+wrong_irq_exception:
+	b	wrong_irq_exception		@ Infinite loop in case of hardware exception.
 

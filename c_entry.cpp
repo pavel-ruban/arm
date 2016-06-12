@@ -12,6 +12,7 @@
 #include <spi_binds.h>
 #include <rc522_binds.h>
 #include <mfrc522.h>
+#include <list>
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -25,11 +26,13 @@ ErrorStatus HSEStartUpStatus;
 void RCC_Configuration(void);
 void NVIC_Configuration(void);
 void Delay(vu32 nCount);
-void custom_asm();
+extern "C" void custom_asm();
 void rc522_irq_prepare();
-void reset_asm();
+extern "C" void reset_asm();
 
-void __initialize_hardware_early()
+using namespace std;
+
+extern "C" void __initialize_hardware_early()
 {
 	/* Configure the system clocks */
 	RCC_Configuration();
@@ -38,15 +41,23 @@ void __initialize_hardware_early()
 	NVIC_Configuration();
 }
 
-void WRONG_IRQ_EXCEPTION()
+extern "C" void WRONG_IRQ_EXCEPTION()
 {
 	while (1) {}
 }
 
-void EXTI4_IRQHandler()
+extern "C" void EXTI4_IRQHandler()
 {
 	while (1) {}
 }
+
+typedef struct {
+	uint8_t tag_id[4];
+	uint8_t flags;
+	uint8_t cached;
+} tag_cache_entry;
+
+list<tag_cache_entry> access_cache;
 
 void rfid_irq_tag_handler()
 {
@@ -59,13 +70,14 @@ void rfid_irq_tag_handler()
 		static uint8_t led_state = 0;
 		led_state ? GPIO_SetBits(GPIOA, GPIO_Pin_1) : GPIO_ResetBits(GPIOA, GPIO_Pin_1);
 		led_state ^= 1;
+
 	}
 
 	// Activate timer.
 	rc522_irq_prepare();
 }
 
-void EXTI15_10_IRQHandler()
+extern "C" void EXTI15_10_IRQHandler()
 {
 	// Get active interrupts from RC522.
 	uint8_t mfrc522_com_irq_reg = mfrc522_read(ComIrqReg);
@@ -113,9 +125,9 @@ void EXTI15_10_IRQHandler()
 	EXTI_ClearITPendingBit(EXTI_Line10);
 }
 
-void interrupt_initialize();
+extern "C" void interrupt_initialize();
 
-void __initialize_hardware()
+extern "C" void __initialize_hardware()
 {
 	/* Enable GPIOC clock */
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
@@ -179,7 +191,7 @@ void __initialize_hardware()
 	interrupt_initialize();
 }
 
-void __reset_hardware()
+extern "C" void __reset_hardware()
 {
 	reset_asm();
 }
@@ -195,7 +207,7 @@ void rc522_irq_prepare()
 	mfrc522_write(ControlReg, 1 << TStartNow);
 }
 
-int main(void)
+extern "C" int main(void)
 {
 	mfrc522_init();
 

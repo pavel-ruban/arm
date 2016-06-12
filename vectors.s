@@ -20,6 +20,10 @@
 @ End of the interrupt vector table.
 .org	253
 
+.type EXTI15_10_IRQHandler "function"
+.type EXTI4_IRQHandler "function"
+.type WRONG_IRQ_EXCEPTION "function"
+
 nmi_exception:
 	b	nmi_exception		@ Infinite loop in case of hardware exception.
 hard_fault_exception:

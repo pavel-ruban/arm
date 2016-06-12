@@ -67,6 +67,8 @@ SECTIONS
 	. = ALIGN(4);
         KEEP(*(.vectors))     	/* Interrupt vectors */
 	. = ALIGN(4);
+	KEEP(*(SORT(.init_array.*)))
+	KEEP(*(.init_array))
 
 	KEEP(*(.cfmconfig))			/* Freescale configuration words */
 	. = ALIGN(4);

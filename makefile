@@ -13,12 +13,12 @@ CC = arm-none-eabi-gcc
 CFLAGS = $(COMPILE_OPTS) $(INCLUDE_DIRS) -std=gnu11
 
 CXX = arm-none-eabi-g++
-CXXFLAGS = $(COMPILE_OPTS) $(INCLUDE_DIRS) -std=gnu++11
+CXXFLAGS = $(COMPILE_OPTS) $(INCLUDE_DIRS) -std=gnu++11 -fno-rtti -fno-exceptions
 
 AS = arm-none-eabi-gcc
 ASFLAGS = $(COMPILE_OPTS) $(INCLUDE_DIRS) -c
 
-LD = arm-none-eabi-gcc
+LD = arm-none-eabi-g++
 
 LDFLAGS = -Wl,--gc-sections,-Map=$@.map,-cref,-u,Reset_Handler $(INCLUDE_DIRS) $(LIBRARY_DIRS) -T mem.ld -T sections.ld -L ldscripts -nostartfiles
 
@@ -60,8 +60,8 @@ BINDS_OUT = $(BINDS_DIR)/binds.a
 HARDWARE_LIBS_OUT = $(HARDWARE_LIBS_DIR)/hardware_libs.a
 
 # main
-$(FIRMWARE_ELF): c_entry.o entry.o $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) $(HARDWARE_LIBS_OUT)
-	$(LD) $(LDFLAGS) c_entry.o entry.o $(HARDWARE_LIBS_OUT) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) --output $@
+$(FIRMWARE_ELF): c_entry.o entry.o newlib_stubs.o $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) $(HARDWARE_LIBS_OUT)
+	$(LD) $(LDFLAGS) c_entry.o entry.o $(HARDWARE_LIBS_OUT) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) newlib_stubs.o --output $@
 
 $(FIRMWARE_BIN): $(FIRMWARE_ELF)
 	$(OBJCP) $(OBJCPFLAGS) $< $@

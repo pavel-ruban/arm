@@ -12,7 +12,7 @@
 #include <spi_binds.h>
 #include <rc522_binds.h>
 #include <mfrc522.h>
-#include <list>
+#include <cstring>
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -28,6 +28,8 @@ void NVIC_Configuration(void);
 void Delay(vu32 nCount);
 extern "C" void custom_asm();
 void rc522_irq_prepare();
+void RTC_Configuration();
+
 extern "C" void reset_asm();
 
 using namespace std;
@@ -39,6 +41,25 @@ extern "C" void __initialize_hardware_early()
 
 	/* NVIC Configuration */
 	NVIC_Configuration();
+
+	/* Set up real time clock */
+	RTC_Configuration();
+}
+
+void RTC_Configuration()
+{
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR, ENABLE);
+
+	PWR_BackupAccessCmd(ENABLE);
+
+	RCC_BackupResetCmd(ENABLE);
+	RCC_BackupResetCmd(DISABLE);
+
+	RCC_LSICmd(ENABLE);
+	RCC_RTCCLKConfig(RCC_RTCCLKSource_LSI);
+	RCC_RTCCLKCmd(ENABLE);
+
+	RCC_LSEConfig(RCC_LSE_ON);
 }
 
 extern "C" void WRONG_IRQ_EXCEPTION()
@@ -54,10 +75,11 @@ extern "C" void EXTI4_IRQHandler()
 typedef struct {
 	uint8_t tag_id[4];
 	uint8_t flags;
-	uint8_t cached;
+	uint32_t cached;
 } tag_cache_entry;
 
-list<tag_cache_entry> access_cache;
+tag_cache_entry access_cache[100];
+uint16_t access_cache_index = 0;
 
 void rfid_irq_tag_handler()
 {
@@ -70,6 +92,31 @@ void rfid_irq_tag_handler()
 		static uint8_t led_state = 0;
 		led_state ? GPIO_SetBits(GPIOA, GPIO_Pin_1) : GPIO_ResetBits(GPIOA, GPIO_Pin_1);
 		led_state ^= 1;
+
+		// Check if tag was cached.
+		uint8_t exists = 0;
+		for (uint16_t i = 0; i < access_cache_index; ++i) {
+			if (*((uint32_t *) &(access_cache[i].tag_id[0])) == *((uint32_t *) &(tag_id[0]))) {
+				exists = 1;
+				break;
+			}
+		}
+
+		// If no, request data from network and cache result.
+		if (exists)
+		{
+			uint8_t y = 3;
+		}
+		else if (access_cache_index < sizeof(access_cache)) {
+
+	      		tag_cache_entry cache;
+
+			memcpy(cache.tag_id, tag_id, 4);
+			cache.flags = 0xff;
+			cache.cached = RTC_GetCounter();
+
+			access_cache[access_cache_index++] = cache;
+		}
 
 	}
 
@@ -220,6 +267,7 @@ extern "C" int main(void)
 
 	while (1)
 	{
+		uint32_t clock = RTC_GetCounter();
 	}
 }
 

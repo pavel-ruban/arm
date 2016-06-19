@@ -266,3 +266,15 @@ int _write(int file, char *ptr, int len) {
     }
     return len;
 }
+
+extern int errno;
+
+int * __errno()
+{
+	return &errno;
+}
+
+int __aeabi_atexit()
+{
+	return 0;
+}

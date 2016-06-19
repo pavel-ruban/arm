@@ -13,6 +13,11 @@
 #include <rc522_binds.h>
 #include <mfrc522.h>
 #include <cstring>
+#include "include/queue.h"
+
+#define EVENT_ACCESS_REQ 1
+#define ACCESS_GRANTED 0x1
+#define ACCESS_DENIED 0x0
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -21,6 +26,21 @@
 SPI_InitTypeDef SPI_InitStructure;
 GPIO_InitTypeDef GPIO_InitStructure;
 ErrorStatus HSEStartUpStatus;
+
+typedef struct {
+	uint8_t tag_id[4];
+	uint8_t flags;
+	uint32_t cached;
+} tag_cache_entry;
+
+typedef struct {
+	uint8_t tag_id[4];
+	uint32_t event_time;
+	uint32_t node;
+} tag_event;
+
+Queue<tag_cache_entry, 100> tag_cache;
+Queue<tag_event, 100> tag_events;
 
 /* Private function prototypes -----------------------------------------------*/
 void RCC_Configuration(void);
@@ -32,7 +52,6 @@ void RTC_Configuration();
 
 extern "C" void reset_asm();
 
-using namespace std;
 
 extern "C" void __initialize_hardware_early()
 {
@@ -72,14 +91,43 @@ extern "C" void EXTI4_IRQHandler()
 	while (1) {}
 }
 
-typedef struct {
-	uint8_t tag_id[4];
-	uint8_t flags;
-	uint32_t cached;
-} tag_cache_entry;
+uint8_t somi_access_check(uint8_t tag_id[])
+{
+	// @todo use here network request.
+	return 0xff;
+}
 
-tag_cache_entry access_cache[100];
-uint16_t access_cache_index = 0;
+void open_node()
+{
+	// @todo implement here hardware EMI lock control.
+	GPIO_SetBits(GPIOA, GPIO_Pin_1);
+}
+
+void access_denied_signal()
+{
+	// @todo implement here hardware EMI lock control.
+	GPIO_ResetBits(GPIOA, GPIO_Pin_1);
+}
+
+void somi_event_handler(uint8_t event, uint8_t flags)
+{
+	switch (event)
+	{
+		case EVENT_ACCESS_REQ:
+			if (flags & ACCESS_GRANTED) {
+				open_node();
+			}
+			else {
+				access_denied_signal();
+			}
+			break;
+	}
+}
+
+uint32_t get_node_id()
+{
+	return 0xADDF8E83;
+}
 
 void rfid_irq_tag_handler()
 {
@@ -94,30 +142,60 @@ void rfid_irq_tag_handler()
 		led_state ^= 1;
 
 		// Check if tag was cached.
-		uint8_t exists = 0;
-		for (uint16_t i = 0; i < access_cache_index; ++i) {
-			if (*((uint32_t *) &(access_cache[i].tag_id[0])) == *((uint32_t *) &(tag_id[0]))) {
-				exists = 1;
+		uint8_t flags;
+
+		tag_cache_entry *cache = nullptr;
+
+		for (auto it = tag_cache.begin(); it != tag_cache.end(); ++it) {
+			if (*((uint32_t *) &(it->tag_id[0])) == *((uint32_t *) &(tag_id[0]))) {
+				cache = &(*it);
 				break;
 			}
 		}
 
+		// We have to do the next things:
+		// a) Get access for the tag.
+		// Access can be retreived from network or via cache.
+		// b) Track event about access request.
+		// Events can be tracked directly by network request or via RabitMQ queue.
+
 		// If no, request data from network and cache result.
-		if (exists)
+		if (cache)
 		{
-			uint8_t y = 3;
+			// If queue has space then use cache and store event to the cache.
+			if (!tag_events.full) {
+				tag_event event;
+				memcpy(event.tag_id, tag_id, 4);
+				event.event_time = RTC_GetCounter();
+				event.node = get_node_id();
+
+				// Add event to the queue.
+				tag_events.push_back(event);
+
+				// Get access flags from cache.
+				flags = cache->flags;
+			}
+			// Otherwise initiate direct network request.
+			else {
+				flags = somi_access_check(tag_id);
+			}
 		}
-		else if (access_cache_index < sizeof(access_cache)) {
+		// If cache hasn't tag request data from network and store it to the cache.
+		else {
+			flags = somi_access_check(tag_id);
+			if (!tag_cache.full) {
+				tag_cache_entry cache_entry;
 
-	      		tag_cache_entry cache;
+				memcpy(cache_entry.tag_id, tag_id, 4);
+				cache_entry.flags = flags;
+				cache_entry.cached = RTC_GetCounter();
 
-			memcpy(cache.tag_id, tag_id, 4);
-			cache.flags = 0xff;
-			cache.cached = RTC_GetCounter();
-
-			access_cache[access_cache_index++] = cache;
+				tag_cache.push_back(cache_entry);
+			}
 		}
 
+		// Trigger event handler.
+		somi_event_handler(EVENT_ACCESS_REQ, flags);
 	}
 
 	// Activate timer.
@@ -249,9 +327,24 @@ void rc522_irq_prepare()
 
 	// Clear all interrupts flags.
 	mfrc522_write(ComIrqReg, (uint8_t) ~0x80);
+	uint8_t status = mfrc522_read(Status1Reg);
 
 	// Start timer.
 	mfrc522_write(ControlReg, 1 << TStartNow);
+}
+
+void somi_server_request(uint8_t *tag_id, uint32_t timestamp, uint32_t node)
+{
+	// @todo send data to rabbitmq server.
+}
+
+void tag_event_queue_processor()
+{
+	for (auto it = tag_events.begin(); it != tag_events.end(); ++it)
+	{
+		somi_server_request(it->tag_id, it->event_time, it->node);
+		tag_events.pop_front();
+	}
 }
 
 extern "C" int main(void)
@@ -265,9 +358,12 @@ extern "C" int main(void)
 
 	rc522_irq_prepare();
 
+	// Workers.
 	while (1)
 	{
-		uint32_t clock = RTC_GetCounter();
+		// If cached tag did request, the even is stored to queue, send it to server
+		// in main thread.
+		tag_event_queue_processor();
 	}
 }
 

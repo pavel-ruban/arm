@@ -1,12 +1,12 @@
 # setup
 
 COMPILE_OPTS = -mcpu=cortex-m3 -mthumb -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000 #-Wall
-INCLUDE_DIRS = -I include -I system/include/cmsis -I system/include/stm32f1-stdperiph -I system/include -I binds/include
+INCLUDE_DIRS = -I include -I system/include/cmsis -I system/include/stm32f1-stdperiph -I system/include -I binds/include -I /usr/local/include/include
 
 LIBS_INCLUDE_DIRS = -I $(HARDWARE_LIBS_DIR)/rc522
 INCLUDE_DIRS += $(LIBS_INCLUDE_DIRS)
 
-LIBRARY_DIRS = -L lib
+LIBRARY_DIRS = -L lib -L /usr/local/lib/
 
 GDB = arm-none-eabi-gdb
 CC = arm-none-eabi-gcc
@@ -20,7 +20,7 @@ ASFLAGS = $(COMPILE_OPTS) $(INCLUDE_DIRS) -c
 
 LD = arm-none-eabi-g++
 
-LDFLAGS = -Wl,--gc-sections,-Map=$@.map,-cref,-u,Reset_Handler $(INCLUDE_DIRS) $(LIBRARY_DIRS) -T mem.ld -T sections.ld -L ldscripts -nostartfiles
+LDFLAGS = -Wl,--gc-sections,-Map=$@.map,-cref,-u,Reset_Handler $(INCLUDE_DIRS) $(LIBRARY_DIRS) -T mem.ld -T sections.ld -L ldscripts -nostartfiles -nodefaultlibs  -nostdlib
 
 OBJCP = arm-none-eabi-objcopy
 OBJCPFLAGS = -O binary

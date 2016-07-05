@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdint.h>
+#include <stm32f10x_conf.h>
 
 // Bind SPI to GPIO pins
 #define	SPI_I2S_FLAG_TXE	((uint16_t)0x0002)

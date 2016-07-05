@@ -3,6 +3,8 @@
 #include <mfrc522.h>
 
 #define RC522_GPIO		GPIOB
+#define	RC522_GPIO_CLK		RCC_APB2Periph_GPIOB
+
 #define RC522_SPI_CH		SPIz
 
 #define RC522_CS_PIN		GPIO_Pin_12

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <util/delay.h>
-
 // Init ENC28J60
 void enc28j60_init(uint8_t *macadr);
 
@@ -24,7 +22,6 @@ void enc28j60_write_buffer(uint8_t *buf, uint16_t len);
 // R/W PHY reg
 uint16_t enc28j60_read_phy(uint8_t adr);
 void enc28j60_write_phy(uint8_t adr, uint16_t data);
-
 
 #define ENC28J60_BUFSIZE	0x2000
 #define ENC28J60_RXSIZE		0x1A00

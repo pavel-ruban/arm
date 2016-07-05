@@ -1,4 +1,4 @@
-#include "ethernet.h"
+#include <binds.h>
 
 /*
  * UDP
@@ -10,7 +10,7 @@ void udp_filter(eth_frame_t *frame, uint16_t len)
 
 	if(len >= sizeof(udp_packet_t))
 	{
-		udp_packet(frame, ntohs(udp->len) -
+		udp_reply(frame, ntohs(udp->len) -
 			sizeof(udp_packet_t));
 	}
 }

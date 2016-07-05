@@ -2,8 +2,8 @@
 #include <stm32f10x_conf.h>
 #include <binds.h>
 
-SPI_InitTypeDef SPI_InitStructure;
-GPIO_InitTypeDef GPIO_InitStructure;
+extern SPI_InitTypeDef SPI_InitStructure;
+extern GPIO_InitTypeDef GPIO_InitStructure;
 
 /**
  * Used to bind current Architecture SPI Implementation to libs HAL.

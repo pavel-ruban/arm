@@ -1,5 +1,4 @@
-#include "spi.h"
-#include "enc28j60.h"
+#include <binds.h>
 
 extern char *term_var_info;
 
@@ -40,7 +39,7 @@ void enc28j60_soft_reset()
 	enc28j60_release();
 
 	enc28j60_current_bank = 0;
-	_delay_ms(1); // Wait until device initializes
+	Delay(1); // Wait until device initializes
 }
 
 /*
@@ -156,9 +155,9 @@ void enc28j60_init(uint8_t *macadr)
 	// Initialize SPI
 	enc28j60_release();
 
-	_delay_ms(1500);
+	Delay(1500);
 	enc28j60_soft_reset();
-	_delay_ms(500);
+	Delay(500);
 
 	// Set clock divider.
 	enc28j60_wcr(ECOCON, ECOCON_COCON1);

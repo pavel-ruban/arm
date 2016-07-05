@@ -9,7 +9,11 @@
 /* Includes ------------------------------------------------------------------*/
 #include <stdint.h>
 #include <stm32f10x_conf.h>
+
+extern "C" {
 #include <binds.h>
+}
+
 #include <cstring>
 #include "include/queue.h"
 
@@ -315,7 +319,7 @@ void tag_event_queue_processor()
 void lan_poll()
 {
 	uint16_t len;
-	eth_frame_t *frame = (void*) net_buf;
+	eth_frame_t *frame = (eth_frame_t *) net_buf;
 
 	while((len = eth_recv_packet(net_buf, sizeof(net_buf))));
 		eth_filter(frame, len);

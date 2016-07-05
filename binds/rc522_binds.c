@@ -1,6 +1,9 @@
 #include <stm32f10x_conf.h>
 #include <binds.h>
 
+
+extern GPIO_InitTypeDef GPIO_InitStructure;
+
 void rc522_select()
 {
 	// Wait until SPI done the work.
@@ -18,7 +21,7 @@ void rc522_release()
 void rc522_set_pins()
 {
 	#ifndef RCC_APB2Periph_RC522_Enabled
-		RCC_APB2PeriphClockCmd(RC522_GPIO, ENABLE);
+		RCC_APB2PeriphClockCmd(RC522_GPIO_CLK, ENABLE);
 	#endif
 
 	// Configure RC522 SPI CS line 12 and reset 11 line.

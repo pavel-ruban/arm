@@ -1,3 +1,5 @@
+#include <binds.h>
+
 /*
  * ARP
  */

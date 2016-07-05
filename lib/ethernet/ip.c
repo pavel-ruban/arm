@@ -1,3 +1,5 @@
+#include <binds.h>
+
 // Отправка IP-пакета
 // Следующие поля пакета должны быть установлены:
 //    ip.to_addr - адрес получателя
@@ -44,7 +46,7 @@ uint8_t ip_send(eth_frame_t *frame, uint16_t len)
 /*
  * IP
  */
-uint16_t ip_cksum(uint32_t sum, uint8_t *buf, size_t len)
+uint16_t ip_cksum(uint32_t sum, uint8_t *buf, uint16_t len)
 {
 	while(len >= 2)
 	{

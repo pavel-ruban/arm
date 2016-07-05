@@ -1,8 +1,8 @@
 #include <stm32f10x_conf.h>
-#include "enc28j60.h"
+#include <enc28j60.h>
 #include <binds.h>
 
-GPIO_InitTypeDef GPIO_InitStructure;
+extern GPIO_InitTypeDef GPIO_InitStructure;
 
 void enc28j60_select()
 {
@@ -21,7 +21,7 @@ void enc28j60_release()
 void enc28j60_set_pins()
 {
 	#ifndef RCC_APB2Periph_ETH_Enabled
-		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+		RCC_APB2PeriphClockCmd(ETH_GPIO_CLK, ENABLE);
 	#endif
 
 	// Configure RC522 SPI CS line 12 and reset 11 line.
@@ -42,7 +42,7 @@ void enc28j60_set_pins()
 	GPIO_ResetBits(ETH_GPIO, ETH_IRQ_PIN);
 }
 
-void eth_send_packet(void *frame, uint16_t len)
+void eth_send_packet(uint8_t *frame, uint16_t len)
 {
 	enc28j60_send_packet(frame, len);
 }

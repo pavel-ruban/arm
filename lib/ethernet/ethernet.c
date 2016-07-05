@@ -1,6 +1,12 @@
 #include <binds.h>
 
-uint8_t  mac_addr[6]  = MAC_ADDR;
+uint8_t dest_mac_addr[6] = DEST_MAC_ADDR;
+uint8_t mac_addr[6] = MAC_ADDR;
+uint32_t ip_addr;
+uint32_t ip_mask;
+uint32_t ip_gateway;
+
+uint8_t net_buf[ETHERNET_MAXFRAME];
 
 /*
  * Ethernet
@@ -37,9 +43,4 @@ void eth_send(eth_frame_t *frame, uint16_t len)
     memcpy(frame->from_addr, mac_addr, 6);
     eth_send_packet((void*)frame, len +
         sizeof(eth_frame_t));
-}
-
-uint16_t eth_recv_packet(uint8_t *net_buf, uint16_t len)
-{
-	return enc28j60_recv_packet(net_buf, len);
 }

@@ -1,12 +1,12 @@
 # setup
 
 COMPILE_OPTS = -mcpu=cortex-m3 -mthumb -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000 #-Wall
-INCLUDE_DIRS = -I include -I system/include/cmsis -I system/include/stm32f1-stdperiph -I system/include -I binds/include -I /usr/local/include/include
+INCLUDE_DIRS = -I include -I system/include/cmsis -I system/include/stm32f1-stdperiph -I system/include -I binds/include -I /usr/local/include/include -I lib/ethernet -I lib/enc28j60
 
 LIBS_INCLUDE_DIRS = -I $(HARDWARE_LIBS_DIR)/rc522
 INCLUDE_DIRS += $(LIBS_INCLUDE_DIRS)
 
-LIBRARY_DIRS = -L lib -L /usr/local/lib/
+LIBRARY_DIRS = -L lib -L /usr/local/lib/ 
 
 GDB = arm-none-eabi-gdb
 CC = arm-none-eabi-gcc
@@ -61,7 +61,7 @@ HARDWARE_LIBS_OUT = $(HARDWARE_LIBS_DIR)/hardware_libs.a
 
 # main
 $(FIRMWARE_ELF): c_entry.o entry.o newlib_stubs.o $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) $(HARDWARE_LIBS_OUT)
-	$(LD) $(LDFLAGS) c_entry.o entry.o $(HARDWARE_LIBS_OUT) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) newlib_stubs.o --output $@
+	$(LD) $(LDFLAGS) c_entry.o entry.o $(HARDWARE_LIBS_OUT) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) newlib_stubs.o libc.a --output $@
 
 $(FIRMWARE_BIN): $(FIRMWARE_ELF)
 	$(OBJCP) $(OBJCPFLAGS) $< $@
@@ -135,14 +135,23 @@ $(LIBSTM32_OBJS): include/stm32f10x_conf.h
 $(LIBSTM32_OUT): $(LIBSTM32_OBJS)
 	$(AR) $(ARFLAGS) $@ $(LIBSTM32_OBJS)
 
-BINDS_OBJS = 			\
-	$(BINDS_DIR)/spi_binds.o
+BINDS_OBJS = 				\
+	$(BINDS_DIR)/spi_binds.o	\
+	$(BINDS_DIR)/rc522_binds.o	\
+	$(BINDS_DIR)/ethernet_binds.o
 
 $(BINDS_OUT): $(BINDS_OBJS)
 	$(AR) $(ARFLAGS) $@ $(BINDS_OBJS)
 
 HARDWARE_LIBS_OBJS = 					\
-	$(HARDWARE_LIBS_DIR)/rc522/mfrc522.o
+	$(HARDWARE_LIBS_DIR)/rc522/mfrc522.o		\
+	$(HARDWARE_LIBS_DIR)/ethernet/arp.o		\
+	$(HARDWARE_LIBS_DIR)/ethernet/ethernet.o	\
+	$(HARDWARE_LIBS_DIR)/ethernet/icmp.o		\
+	$(HARDWARE_LIBS_DIR)/ethernet/ip.o		\
+	$(HARDWARE_LIBS_DIR)/ethernet/tcp.o		\
+	$(HARDWARE_LIBS_DIR)/ethernet/udp.o		\
+	$(HARDWARE_LIBS_DIR)/enc28j60/enc28j60.o
 
 $(HARDWARE_LIBS_OUT): $(HARDWARE_LIBS_OBJS)
 	$(AR) $(ARFLAGS) $@ $(HARDWARE_LIBS_OBJS)

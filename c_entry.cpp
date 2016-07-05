@@ -268,22 +268,9 @@ extern "C" void __initialize_hardware()
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
-	// Configure RC522 SPI CS line 12 and reset 11 line.
-	GPIO_InitStructure.GPIO_Pin = RC522_CS_PIN | RC522_RESET_PIN;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-	// Set reset line to start MFRC55 chip to work and release it's SPI interface.
-	GPIO_SetBits(RC522_GPIO, RC522_RESET_PIN | RC522_CS_PIN);
-
-	// Configure RC522 IRQ pin.
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-	GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-	GPIO_ResetBits(RC522_GPIO, RC522_IRQ_PIN);
+	// initialize peripheal hardware pins.
+	rc522_set_pins();
+	eth_set_pins();
 
 	// Initilize SPIz hardware settings (pins and spi registers).
 	set_spi_registers();
@@ -326,9 +313,9 @@ void tag_event_queue_processor()
 void lan_poll()
 {
 	uint16_t len;
-	eth_frame_t *frame = (void*)net_buf;
+	eth_frame_t *frame = (void*) net_buf;
 
-	while((len = enc28j60_recv_packet(net_buf, sizeof(net_buf))));
+	while((len = eth_recv_packet(net_buf, sizeof(net_buf))));
 		eth_filter(frame, len);
 }
 

@@ -41,3 +41,9 @@ void eth_set_pins()
 
 	GPIO_ResetBits(ETH_GPIO, ETH_IRQ_PIN);
 }
+
+void eth_send_packet(void *frame, uint16_t len)
+{
+	enc28j60_send_packet(frame, len);
+}
+

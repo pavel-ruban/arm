@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ethernet.h>
+
 #define ETH_GPIO		GPIOA
 
 #define ETH_SPI_CH		SPIy

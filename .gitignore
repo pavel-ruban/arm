@@ -11,3 +11,4 @@ test
 tags
 tools.txt
 .gdbinit
+eastl_stubs.cpp

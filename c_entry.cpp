@@ -9,9 +9,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include <stdint.h>
 #include <stm32f10x_conf.h>
-#include <spi_binds.h>
-#include <rc522_binds.h>
-#include <mfrc522.h>
+#include <binds.h>
 #include <cstring>
 #include "include/queue.h"
 
@@ -254,6 +252,12 @@ extern "C" void interrupt_initialize();
 
 extern "C" void __initialize_hardware()
 {
+	// Avoid peripheal libs additional init code.
+	#define RCC_APB2Periph_SPIz_Enabled
+	#define RCC_APB2Periph_SPIy_Enabled
+	#define RCC_APB2Periph_ETH_Enabled
+	#define RCC_APB2Periph_RC522_Enabled
+
 	/* Enable GPIOC clock */
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
@@ -281,37 +285,9 @@ extern "C" void __initialize_hardware()
 
 	GPIO_ResetBits(RC522_GPIO, RC522_IRQ_PIN);
 
-	uint16_t SPIz_Mode = SPI_Mode_Master;
-
-	/* Configure SPIz pins: SCK, MISO and MOSI ---------------------------------*/
-	GPIO_InitStructure.GPIO_Pin = SPIz_PIN_SCK | SPIz_PIN_MOSI;
-	/* Configure SCK and MOSI pins as Alternate Function Push Pull */
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-
-	GPIO_Init(SPIz_GPIO, &GPIO_InitStructure);
-
-	GPIO_InitStructure.GPIO_Pin = SPIz_PIN_MISO;
-
-	/* Configure MISO pin as Input Floating  */
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-	GPIO_Init(SPIz_GPIO, &GPIO_InitStructure);
-
-	SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
-	SPI_InitStructure.SPI_Mode = SPI_Mode_Master;
-	SPI_InitStructure.SPI_DataSize = SPI_DataSize_8b;
-	SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;
-	SPI_InitStructure.SPI_CPHA = SPI_CPHA_1Edge;
-	SPI_InitStructure.SPI_NSS = SPI_NSS_Soft;
-	SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;
-
-	SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;
-	SPI_InitStructure.SPI_CRCPolynomial = 7;
-	SPI_Init(SPIz, &SPI_InitStructure);
-
-	/* Enable SPIz */
-	SPI_Cmd(SPIz, ENABLE);
+	// Initilize SPIz hardware settings (pins and spi registers).
+	set_spi_registers();
+	set_spi2_registers();
 
 	interrupt_initialize();
 }
@@ -347,9 +323,19 @@ void tag_event_queue_processor()
 	}
 }
 
+void lan_poll()
+{
+	uint16_t len;
+	eth_frame_t *frame = (void*)net_buf;
+
+	while((len = enc28j60_recv_packet(net_buf, sizeof(net_buf))));
+		eth_filter(frame, len);
+}
+
 extern "C" int main(void)
 {
 	mfrc522_init();
+	enc28j60_init(mac_addr);
 
 	// Check if timer started.
 	uint8_t status = mfrc522_read(Status1Reg);

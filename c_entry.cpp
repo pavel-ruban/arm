@@ -25,6 +25,8 @@ SPI_InitTypeDef SPI_InitStructure;
 GPIO_InitTypeDef GPIO_InitStructure;
 ErrorStatus HSEStartUpStatus;
 
+extern uint8_t mac_addr[6];
+
 typedef struct {
 	uint8_t tag_id[4];
 	uint8_t flags;
@@ -270,7 +272,7 @@ extern "C" void __initialize_hardware()
 
 	// initialize peripheal hardware pins.
 	rc522_set_pins();
-	eth_set_pins();
+	enc28j60_set_pins();
 
 	// Initilize SPIz hardware settings (pins and spi registers).
 	set_spi_registers();

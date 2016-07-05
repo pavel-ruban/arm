@@ -4,21 +4,21 @@
 
 GPIO_InitTypeDef GPIO_InitStructure;
 
-void eth_select()
+void enc28j60_select()
 {
 	// Wait until SPI done the work.
 	while (SPI_I2S_GetFlagStatus(SPIy, SPI_I2S_FLAG_BSY) == SET);
 	GPIO_ResetBits(ETH_GPIO, ETH_CS_PIN);
 }
 
-void eth_release()
+void enc28j60_release()
 {
 	// Wait until SPI done the work.
 	while (SPI_I2S_GetFlagStatus(SPIy, SPI_I2S_FLAG_BSY) == SET);
 	GPIO_SetBits(ETH_GPIO, ETH_CS_PIN);
 }
 
-void eth_set_pins()
+void enc28j60_set_pins()
 {
 	#ifndef RCC_APB2Periph_ETH_Enabled
 		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
@@ -47,3 +47,7 @@ void eth_send_packet(void *frame, uint16_t len)
 	enc28j60_send_packet(frame, len);
 }
 
+uint16_t eth_recv_packet(uint8_t *buf, uint16_t buflen)
+{
+	return enc28j60_recv_packet(buf, buflen);
+}

@@ -7,11 +7,11 @@
 
 #define	SPIy			SPI1
 #define	SPIy_CLK		RCC_APB2Periph_SPI1
-#define	SPIy_GPIO		GPIOA
+#define	SPIy_GPIO		GPIOB
 #define	SPIy_GPIO_CLK		RCC_APB2Periph_GPIOA
-#define	SPIy_PIN_SCK		GPIO_Pin_5
-#define	SPIy_PIN_MISO		GPIO_Pin_6
-#define	SPIy_PIN_MOSI		GPIO_Pin_7
+#define	SPIy_PIN_SCK		GPIO_Pin_3
+#define	SPIy_PIN_MISO		GPIO_Pin_4
+#define	SPIy_PIN_MOSI		GPIO_Pin_5
 
 #define	SPIz			SPI2
 #define	SPIz_CLK		RCC_APB1Periph_SPI2
@@ -24,6 +24,6 @@
 #define SKIP_RECEIVE		1
 #define RECEIVE_BYTE		0
 
-uint8_t spi_transmit(uint8_t byte, uint8_t skip_receive, SPI_TypeDef * SPI_CH);
+uint8_t spi_transmit(uint8_t byte, uint8_t skip_receive, SPI_TypeDef *SPI_CH);
 void set_spi_registers();
 void set_spi2_registers();

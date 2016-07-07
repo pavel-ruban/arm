@@ -6,6 +6,7 @@ extern GPIO_InitTypeDef GPIO_InitStructure;
 
 void enc28j60_select()
 {
+	__disable_irq();
 	// Wait until SPI done the work.
 	while (SPI_I2S_GetFlagStatus(SPIy, SPI_I2S_FLAG_BSY) == SET);
 	GPIO_ResetBits(ETH_GPIO, ETH_CS_PIN);
@@ -16,6 +17,7 @@ void enc28j60_release()
 	// Wait until SPI done the work.
 	while (SPI_I2S_GetFlagStatus(SPIy, SPI_I2S_FLAG_BSY) == SET);
 	GPIO_SetBits(ETH_GPIO, ETH_CS_PIN);
+	__enable_irq();
 }
 
 void enc28j60_set_pins()

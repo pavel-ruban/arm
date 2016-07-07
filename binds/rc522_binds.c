@@ -6,6 +6,7 @@ extern GPIO_InitTypeDef GPIO_InitStructure;
 
 void rc522_1_select()
 {
+	__disable_irq();
 	// Wait until SPI done the work.
 	while (SPI_I2S_GetFlagStatus(SPIz, SPI_I2S_FLAG_BSY) == SET) {}
 	GPIO_SetBits(RC522_2_GPIO, RC522_2_CS_PIN);
@@ -17,6 +18,7 @@ void rc522_1_release()
 	// Wait until SPI done the work.
 	while (SPI_I2S_GetFlagStatus(SPIz, SPI_I2S_FLAG_BSY) == SET) {}
 	GPIO_SetBits(RC522_GPIO, RC522_CS_PIN);
+	__enable_irq();
 }
 
 void rc522_set_pins()
@@ -45,6 +47,7 @@ void rc522_set_pins()
 
 void rc522_2_select()
 {
+	__disable_irq();
 	// Wait until SPI done the work.
 	while (SPI_I2S_GetFlagStatus(SPIz, SPI_I2S_FLAG_BSY) == SET) {}
 	GPIO_SetBits(RC522_GPIO, RC522_CS_PIN);
@@ -56,6 +59,7 @@ void rc522_2_release()
 	// Wait until SPI done the work.
 	while (SPI_I2S_GetFlagStatus(SPIz, SPI_I2S_FLAG_BSY) == SET) {}
 	GPIO_SetBits(RC522_2_GPIO, RC522_2_CS_PIN);
+	__enable_irq();
 }
 
 void rc522_2_set_pins()

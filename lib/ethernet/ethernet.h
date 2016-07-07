@@ -10,12 +10,12 @@
 
 #define MAC_ADDR			{0x00,0x4e,0x42,0x4c,0x55,0x46}
 // In case of external requests, the dest mac address should be the GATEWAY MAC ADDRESS.
-#define DEST_MAC_ADDR			{0x54,0x04,0xa6,0x3f,0xaf,0xc1}
-//#define DEST_MAC_ADDR			{0x00,0x24,0x1d,0xc6,0x90,0xc5}
+//#define DEST_MAC_ADDR			{0x54,0x04,0xa6,0x3f,0xaf,0xc1}
+#define DEST_MAC_ADDR			{0x00,0x24,0x1d,0xc6,0x90,0xc5}
 //#define DEST_MAC_ADDR			{0xc8,0xd3,0xa3,0x4b,0x78,0x5c}
-#define dest_ip_addr			inet_addr(192,168,1,113)
-#define IP_ADDR				inet_addr(192,168,1,74)
-#define IP_GATEWAY			inet_addr(192,168,1,1)
+#define dest_ip_addr			inet_addr(192,168,0,43)
+#define IP_ADDR				inet_addr(192,168,0,74)
+#define IP_GATEWAY			inet_addr(192,168,0,1)
 #define IP_MASK 			inet_addr(255,255,255,0);
 #define APP_PORT			37208
 

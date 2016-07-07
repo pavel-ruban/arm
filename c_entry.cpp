@@ -270,7 +270,9 @@ extern "C" void TIM2_IRQHandler()
 extern "C" void EXTI2_IRQHandler()
 {
 	EXTI_ClearITPendingBit(EXTI_Line2);
-	return;
+
+	enc28j60_bfc(EIE, EIE_INTIE);
+
 	// Process all pendind network packets.
 	uint16_t len;
 	eth_frame_t *frame = (eth_frame_t *) net_buf;
@@ -280,7 +282,13 @@ extern "C" void EXTI2_IRQHandler()
 		eth_filter(frame, len);
 	}
 
-	EXTI_ClearITPendingBit(EXTI_Line2);
+	enc28j60_bfs(EIE, EIE_INTIE);
+}
+
+extern "C" void EXTI0_IRQHandler()
+{
+	EXTI_ClearITPendingBit(EXTI_Line0);
+	open_node();
 }
 
 extern "C" void EXTI15_10_IRQHandler()
@@ -376,6 +384,12 @@ extern "C" void __initialize_hardware()
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
+	/* Configure PC.4 as Output push-pull */
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
+
 	// initialize peripheal hardware pins.
 	rc522_set_pins();
 	rc522_2_set_pins();
@@ -436,6 +450,7 @@ void tag_event_queue_processor()
 	}
 }
 
+extern uint16_t enc28j60_rxrdpt;
 void lan_poll()
 {
 	uint16_t len;
@@ -467,13 +482,15 @@ extern "C" int main(void)
 	rc522_pcd_select(RC522_PCD_1);
 	rc522_irq_prepare();
 
+	// Activate interrupts, if receive buffer is not empty, falling edge would be generated.
+	enc28j60_bfs(EIE, EIE_INTIE);
+
 	// Workers.
 	while (1)
 	{
 		// If cached tag did request, the even is stored to queue, send it to server
 		// in main thread.
 		tag_event_queue_processor();
-		lan_poll();
 
 		//eth_frame_t *frame = (eth_frame_t *) net_buf;
 		//ip_packet_t *ip = (ip_packet_t *) (frame->data);
@@ -497,9 +514,27 @@ void interrupt_initialize()
 	NVIC_InitTypeDef NVIC_InitStructure;
 	// GPIO structure used to initialize Button pins
 	// Connect EXTI Lines to Button Pins
+	// PCD1
 	GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource10);
+	// PCD2
 	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA, GPIO_PinSource11);
+	// Ethernet
 	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA, GPIO_PinSource2);
+	// Button
+	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA, GPIO_PinSource1);
+
+	// Select EXTI line0
+	EXTI_InitStructure.EXTI_Line = EXTI_Line0;
+	//select interrupt mode
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	//generate interrupt on rising edge
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	//send values to registers
+	EXTI_Init(&EXTI_InitStructure);
+
+	// Clear STM32 irq bit.
+	EXTI_ClearITPendingBit(EXTI_Line0);
 
 	// Select EXTI line0
 	EXTI_InitStructure.EXTI_Line = EXTI_Line10;
@@ -553,6 +588,20 @@ void interrupt_initialize()
 	NVIC_Init(&NVIC_InitStructure);
 
 	NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
+
+	// Configure NVIC
+	// Select NVIC channel to configure
+	NVIC_InitStructure.NVIC_IRQChannel = EXTI0_IRQn;
+	// Set priority to lowest
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x03;
+	// Set subpriority to lowest
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x03;
+	// Enable IRQ channel
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	// Update NVIC registers
+	NVIC_Init(&NVIC_InitStructure);
+
+	NVIC_ClearPendingIRQ(EXTI0_IRQn);
 
 	// Configure NVIC
 	// Select NVIC channel to configure

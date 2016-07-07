@@ -39,7 +39,6 @@ void enc28j60_soft_reset()
 	enc28j60_release();
 
 	enc28j60_current_bank = 0;
-	Delay(1); // Wait until device initializes
 }
 
 /*
@@ -155,9 +154,7 @@ void enc28j60_init(uint8_t *macadr)
 	// Initialize SPI
 	enc28j60_release();
 
-	Delay(1500);
 	enc28j60_soft_reset();
-	Delay(500);
 
 	// Set clock divider.
 	enc28j60_wcr(ECOCON, ECOCON_COCON1);
@@ -195,12 +192,8 @@ void enc28j60_init(uint8_t *macadr)
 	// Enable Rx packets
 	enc28j60_bfs(ECON1, ECON1_RXEN);
 
-	//uint8_t estat = enc28j60_rcr(ESTAT);
-	//uint8_t eie = enc28j60_rcr(EIE);
-	//uint8_t eir = enc28j60_rcr(EIR);
-
-	//enc28j60_wcr(EIE, EIE_INTIE | EIE_PKTIE);
-	//eie = enc28j60_rcr(EIE);
+	// Enable interrupts and receive packet pending interrupt.
+	enc28j60_wcr(EIE, EIE_PKTIE);
 }
 
 void enc28j60_send_packet(uint8_t *data, uint16_t len)

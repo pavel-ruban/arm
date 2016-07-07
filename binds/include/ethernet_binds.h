@@ -8,8 +8,8 @@
 
 #define ETH_SPI_CH		SPIy
 
-#define ETH_CS_PIN		GPIO_Pin_4
-#define ETH_RESET_PIN		GPIO_Pin_3
+#define ETH_CS_PIN		GPIO_Pin_3
+#define ETH_RESET_PIN		GPIO_Pin_4
 #define ETH_IRQ_PIN		GPIO_Pin_2
 
 #define ETHERNET_MAXFRAME	ENC28J60_MAXFRAME

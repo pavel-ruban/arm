@@ -9,8 +9,12 @@
 .word	mem_manage_exception
 .word	bus_fault_exception
 .word	usage_fault_exception
+.org	0x60
+.word	EXTI2_IRQHandler
 .org	0x68
 .word	EXTI4_IRQHandler
+.org	0xB0
+.word	TIM2_IRQHandler
 .org	0xDC
 .word	WRONG_IRQ_EXCEPTION
 .org	0xE0

@@ -104,5 +104,5 @@
 #define IRQPushPull			7
 #define TStartNow			6
 #define TStopNow			7
-
+#define	TRunning			(1 << 3)
 #endif

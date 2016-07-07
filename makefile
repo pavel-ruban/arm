@@ -1,12 +1,12 @@
 # setup
 
-COMPILE_OPTS = -mcpu=cortex-m3 -mthumb -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000 #-Wall
+COMPILE_OPTS = -mcpu=cortex-m3 -mthumb -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000 -Wall
 INCLUDE_DIRS = -I include -I system/include/cmsis -I system/include/stm32f1-stdperiph -I system/include -I binds/include -I /usr/local/include/include -I lib/ethernet -I lib/enc28j60
 
 LIBS_INCLUDE_DIRS = -I $(HARDWARE_LIBS_DIR)/rc522
 INCLUDE_DIRS += $(LIBS_INCLUDE_DIRS)
 
-LIBRARY_DIRS = -L lib -L /usr/local/lib/ 
+LIBRARY_DIRS = -L lib -L /usr/local/lib/
 
 GDB = arm-none-eabi-gdb
 CC = arm-none-eabi-gcc
@@ -59,9 +59,15 @@ LIBSTM32_OUT = lib/libstm32.a
 BINDS_OUT = $(BINDS_DIR)/binds.a
 HARDWARE_LIBS_OUT = $(HARDWARE_LIBS_DIR)/hardware_libs.a
 
+memcpy-armv7m.o: memcpy-armv7m.S
+	$(CC) $(CFLAGS) -c $< -o $@
+
+memset-armv7m.o: memset-armv7m.S
+	$(CC) $(CFLAGS) -c $< -o $@
+
 # main
-$(FIRMWARE_ELF): c_entry.o entry.o newlib_stubs.o $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) $(HARDWARE_LIBS_OUT)
-	$(LD) $(LDFLAGS) c_entry.o entry.o $(HARDWARE_LIBS_OUT) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) newlib_stubs.o libc.a --output $@
+$(FIRMWARE_ELF): c_entry.o entry.o newlib_stubs.o $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) $(HARDWARE_LIBS_OUT) memcpy-armv7m.o memset-armv7m.o
+	$(LD) $(LDFLAGS) c_entry.o entry.o $(HARDWARE_LIBS_OUT) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) newlib_stubs.o memcpy-armv7m.o memset-armv7m.o --output $@
 
 $(FIRMWARE_BIN): $(FIRMWARE_ELF)
 	$(OBJCP) $(OBJCPFLAGS) $< $@

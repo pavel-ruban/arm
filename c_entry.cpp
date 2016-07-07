@@ -12,9 +12,9 @@
 
 extern "C" {
 #include <binds.h>
+#include <string.h>
 }
 
-#include <cstring>
 #include "include/queue.h"
 
 #define EVENT_ACCESS_REQ 1
@@ -95,16 +95,25 @@ extern "C" void EXTI4_IRQHandler()
 	while (1) {}
 }
 
-uint8_t somi_access_check(uint8_t tag_id[])
+/**
+ * @todo we have to have tag, node id, and pcd id here.
+ */
+uint8_t somi_access_check(uint8_t tag_id[], uint8_t node_id[], uint8_t pcd_id)
 {
 	// @todo use here network request.
 	return 0xff;
 }
 
+void access_denied_signal();
+
 void open_node()
 {
 	// @todo implement here hardware EMI lock control.
-	GPIO_SetBits(GPIOA, GPIO_Pin_1);
+	static uint8_t x = 0;
+	x ^= 1;
+
+	if (x) GPIO_SetBits(GPIOA, GPIO_Pin_1);
+	else access_denied_signal();
 }
 
 void access_denied_signal()
@@ -128,9 +137,13 @@ void somi_event_handler(uint8_t event, uint8_t flags)
 	}
 }
 
-uint32_t get_node_id()
+/**
+ * SPI handler is triggered under IRQ, when IRQ inkoved it changes CS pointer for appropriate RC522 PCD.
+ * We use it to deternime what PCD triggered PICC signal.
+ */
+uint8_t get_pcd_id()
 {
-	return 0xADDF8E83;
+	return rc522_select == rc522_2_select ? RC522_PCD_2 : RC522_PCD_1;
 }
 
 void rfid_irq_tag_handler()
@@ -171,7 +184,7 @@ void rfid_irq_tag_handler()
 				tag_event event;
 				memcpy(event.tag_id, tag_id, 4);
 				event.event_time = RTC_GetCounter();
-				event.node = get_node_id();
+				event.node = get_pcd_id();
 
 				// Add event to the queue.
 				tag_events.push_back(event);
@@ -181,12 +194,12 @@ void rfid_irq_tag_handler()
 			}
 			// Otherwise initiate direct network request.
 			else {
-				flags = somi_access_check(tag_id);
+				flags = somi_access_check(tag_id, mac_addr, get_pcd_id());
 			}
 		}
 		// If cache hasn't tag request data from network and store it to the cache.
 		else {
-			flags = somi_access_check(tag_id);
+			flags = somi_access_check(tag_id, mac_addr, get_pcd_id());
 			if (!tag_cache.full) {
 				tag_cache_entry cache_entry;
 
@@ -206,8 +219,81 @@ void rfid_irq_tag_handler()
 	rc522_irq_prepare();
 }
 
+void spi_hardware_failure_signal()
+{
+	// @todo fire pink color for 1-1.5 seconds.
+}
+
+extern "C" void TIM2_IRQHandler()
+{
+    open_node();
+    if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET)
+    {
+        TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
+
+	uint8_t pcd = RC522_PCD_1;
+
+	do {
+		// Chose rfid device.
+		rc522_pcd_select(pcd);
+		uint8_t status = mfrc522_read(Status1Reg);
+
+		__disable_irq();
+		// If timer is not running and interrupt timer flag is not active reinit device.
+		if (!(status & TRunning))
+		{
+			uint8_t need_reinit = 0;
+			switch (pcd) {
+				case RC522_PCD_1:
+					if (EXTI_GetITStatus(EXTI_Line10) == RESET) need_reinit = 1;
+					break;
+
+				case RC522_PCD_2:
+					if (EXTI_GetITStatus(EXTI_Line11) == RESET) need_reinit = 1;
+					break;
+			}
+
+			if (need_reinit)
+			{
+				spi_hardware_failure_signal();
+
+				mfrc522_init();
+				__enable_irq();
+				rc522_irq_prepare();
+			}
+		}
+		__enable_irq();
+	} while (pcd++ < RC522_PCD_2);
+    }
+}
+
+extern "C" void EXTI2_IRQHandler()
+{
+	EXTI_ClearITPendingBit(EXTI_Line2);
+	return;
+	// Process all pendind network packets.
+	uint16_t len;
+	eth_frame_t *frame = (eth_frame_t *) net_buf;
+
+	while((len = eth_recv_packet(net_buf, sizeof(net_buf))))
+	{
+		eth_filter(frame, len);
+	}
+
+	EXTI_ClearITPendingBit(EXTI_Line2);
+}
+
 extern "C" void EXTI15_10_IRQHandler()
 {
+	if (EXTI_GetITStatus(EXTI_Line10) == SET)
+	{
+		rc522_pcd_select(RC522_PCD_1);
+	}
+	else if (EXTI_GetITStatus(EXTI_Line11) == SET)
+	{
+		rc522_pcd_select(RC522_PCD_2);
+	}
+
 	// Get active interrupts from RC522.
 	uint8_t mfrc522_com_irq_reg = mfrc522_read(ComIrqReg);
 
@@ -245,16 +331,31 @@ extern "C" void EXTI15_10_IRQHandler()
 		// Start timer. When it will end it again cause this IRQ handler to search the PICC.
 
 		// Clear STM32 irq bit.
-		EXTI_ClearITPendingBit(EXTI_Line10);
+		if (rc522_select == rc522_1_select)
+		{
+			EXTI_ClearITPendingBit(EXTI_Line10);
+		}
+		else if (rc522_select == rc522_2_select)
+		{
+			EXTI_ClearITPendingBit(EXTI_Line11);
+		}
 
 		mfrc522_write(ControlReg, 1 << TStartNow);
 		return;
 	}
 
-	EXTI_ClearITPendingBit(EXTI_Line10);
+	if (rc522_select == rc522_1_select)
+	{
+		EXTI_ClearITPendingBit(EXTI_Line10);
+	}
+	else if (rc522_select == rc522_2_select)
+	{
+		EXTI_ClearITPendingBit(EXTI_Line11);
+	}
 }
 
 extern "C" void interrupt_initialize();
+extern "C" void initialize_timer();
 
 extern "C" void __initialize_hardware()
 {
@@ -263,6 +364,7 @@ extern "C" void __initialize_hardware()
 	#define RCC_APB2Periph_SPIy_Enabled
 	#define RCC_APB2Periph_ETH_Enabled
 	#define RCC_APB2Periph_RC522_Enabled
+	#define RCC_APB2Periph_RC522_2_Enabled
 
 	/* Enable GPIOC clock */
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
@@ -276,6 +378,7 @@ extern "C" void __initialize_hardware()
 
 	// initialize peripheal hardware pins.
 	rc522_set_pins();
+	rc522_2_set_pins();
 	enc28j60_set_pins();
 
 	// Initilize SPIz hardware settings (pins and spi registers).
@@ -283,6 +386,7 @@ extern "C" void __initialize_hardware()
 	set_spi2_registers();
 
 	interrupt_initialize();
+	initialize_timer();
 }
 
 extern "C" void __reset_hardware()
@@ -307,6 +411,22 @@ void somi_server_request(uint8_t *tag_id, uint32_t timestamp, uint32_t node)
 	// @todo send data to rabbitmq server.
 }
 
+void initialize_timer()
+{
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+
+    TIM_TimeBaseInitTypeDef timerInitStructure;
+    timerInitStructure.TIM_Prescaler = 40000;
+    timerInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
+    timerInitStructure.TIM_Period = 1800;
+    timerInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+    timerInitStructure.TIM_RepetitionCounter = 0;
+    TIM_TimeBaseInit(TIM2, &timerInitStructure);
+    TIM_Cmd(TIM2, ENABLE);
+
+    TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
+}
+
 void tag_event_queue_processor()
 {
 	for (auto it = tag_events.begin(); it != tag_events.end(); ++it)
@@ -321,13 +441,20 @@ void lan_poll()
 	uint16_t len;
 	eth_frame_t *frame = (eth_frame_t *) net_buf;
 
-	while((len = eth_recv_packet(net_buf, sizeof(net_buf))));
+	while((len = eth_recv_packet(net_buf, sizeof(net_buf))))
+	{
 		eth_filter(frame, len);
+	}
 }
 
 extern "C" int main(void)
 {
+	rc522_pcd_select(RC522_PCD_1);
 	mfrc522_init();
+
+	rc522_pcd_select(RC522_PCD_2);
+	mfrc522_init();
+
 	enc28j60_init(mac_addr);
 
 	// Check if timer started.
@@ -337,12 +464,27 @@ extern "C" int main(void)
 
 	rc522_irq_prepare();
 
+	rc522_pcd_select(RC522_PCD_1);
+	rc522_irq_prepare();
+
 	// Workers.
 	while (1)
 	{
 		// If cached tag did request, the even is stored to queue, send it to server
 		// in main thread.
 		tag_event_queue_processor();
+		lan_poll();
+
+		//eth_frame_t *frame = (eth_frame_t *) net_buf;
+		//ip_packet_t *ip = (ip_packet_t *) (frame->data);
+
+		//ip->to_addr = dest_ip_addr;
+
+		//udp_packet_t *udp = (udp_packet_t *) (ip->data);
+		//udp->from_port = APP_PORT;
+		//udp->to_port = APP_PORT;
+
+		//udp_send((eth_frame_t *) net_buf, 3);
 	}
 }
 
@@ -356,6 +498,8 @@ void interrupt_initialize()
 	// GPIO structure used to initialize Button pins
 	// Connect EXTI Lines to Button Pins
 	GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource10);
+	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA, GPIO_PinSource11);
+	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA, GPIO_PinSource2);
 
 	// Select EXTI line0
 	EXTI_InitStructure.EXTI_Line = EXTI_Line10;
@@ -370,6 +514,32 @@ void interrupt_initialize()
 	// Clear STM32 irq bit.
 	EXTI_ClearITPendingBit(EXTI_Line10);
 
+	// Select EXTI line0
+	EXTI_InitStructure.EXTI_Line = EXTI_Line11;
+	//select interrupt mode
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	//generate interrupt on rising edge
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	//send values to registers
+	EXTI_Init(&EXTI_InitStructure);
+
+	// Clear STM32 irq bit.
+	EXTI_ClearITPendingBit(EXTI_Line11);
+
+	// Select EXTI line0
+	EXTI_InitStructure.EXTI_Line = EXTI_Line2;
+	//select interrupt mode
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	//generate interrupt on rising edge
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	//send values to registers
+	EXTI_Init(&EXTI_InitStructure);
+
+	// Clear STM32 irq bit.
+	EXTI_ClearITPendingBit(EXTI_Line2);
+
 	// Configure NVIC
 	// Select NVIC channel to configure
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
@@ -383,6 +553,32 @@ void interrupt_initialize()
 	NVIC_Init(&NVIC_InitStructure);
 
 	NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
+
+	// Configure NVIC
+	// Select NVIC channel to configure
+	NVIC_InitStructure.NVIC_IRQChannel = EXTI2_IRQn;
+	// Set priority to lowest
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x07;
+	// Set subpriority to lowest
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x07;
+	// Enable IRQ channel
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	// Update NVIC registers
+	NVIC_Init(&NVIC_InitStructure);
+
+	NVIC_ClearPendingIRQ(EXTI2_IRQn);
+
+	// Configure NVIC
+	// Select NVIC channel to configure
+	NVIC_InitStructure.NVIC_IRQChannel = TIM2_IRQn;
+	// Set priority to lowest
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x0f;
+	// Set subpriority to lowest
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x0f;
+	// Enable IRQ channel
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	// Update NVIC registers
+	NVIC_Init(&NVIC_InitStructure);
 }
 
 /*******************************************************************************

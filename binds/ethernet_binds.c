@@ -28,7 +28,7 @@ void enc28j60_set_pins()
 	GPIO_InitStructure.GPIO_Pin = ETH_CS_PIN | ETH_RESET_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_Init(GPIOB, &GPIO_InitStructure);
+	GPIO_Init(ETH_GPIO, &GPIO_InitStructure);
 
 	// Set reset line to start ETH chip to work and release it's SPI interface.
 	GPIO_SetBits(ETH_GPIO, ETH_RESET_PIN | ETH_CS_PIN);

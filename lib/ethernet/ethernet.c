@@ -2,9 +2,9 @@
 
 uint8_t dest_mac_addr[6] = DEST_MAC_ADDR;
 uint8_t mac_addr[6] = MAC_ADDR;
-uint32_t ip_addr;
-uint32_t ip_mask;
-uint32_t ip_gateway;
+uint32_t ip_addr = IP_ADDR;
+uint32_t ip_mask = IP_MASK;
+uint32_t ip_gateway = IP_GATEWAY;
 
 uint8_t net_buf[ETHERNET_MAXFRAME];
 

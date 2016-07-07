@@ -195,6 +195,12 @@ void enc28j60_init(uint8_t *macadr)
 	// Enable Rx packets
 	enc28j60_bfs(ECON1, ECON1_RXEN);
 
+	//uint8_t estat = enc28j60_rcr(ESTAT);
+	//uint8_t eie = enc28j60_rcr(EIE);
+	//uint8_t eir = enc28j60_rcr(EIR);
+
+	//enc28j60_wcr(EIE, EIE_INTIE | EIE_PKTIE);
+	//eie = enc28j60_rcr(EIE);
 }
 
 void enc28j60_send_packet(uint8_t *data, uint16_t len)

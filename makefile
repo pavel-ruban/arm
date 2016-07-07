@@ -62,7 +62,7 @@ HARDWARE_LIBS_OUT = $(HARDWARE_LIBS_DIR)/hardware_libs.a
 memcpy-armv7m.o: memcpy-armv7m.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
-memset-armv7m.o: memset-armv7m.S
+memset-armv7m.o: memset-armv7m.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # main

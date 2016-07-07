@@ -492,16 +492,18 @@ extern "C" int main(void)
 		// in main thread.
 		tag_event_queue_processor();
 
-		//eth_frame_t *frame = (eth_frame_t *) net_buf;
-		//ip_packet_t *ip = (ip_packet_t *) (frame->data);
+		eth_frame_t *frame = (eth_frame_t *) net_buf;
+		ip_packet_t *ip = (ip_packet_t *) (frame->data);
 
-		//ip->to_addr = dest_ip_addr;
+		ip->to_addr = dest_ip_addr;
 
-		//udp_packet_t *udp = (udp_packet_t *) (ip->data);
-		//udp->from_port = APP_PORT;
-		//udp->to_port = APP_PORT;
+		udp_packet_t *udp = (udp_packet_t *) (ip->data);
+		udp->from_port = APP_PORT;
+		udp->to_port = APP_PORT;
 
-		//udp_send((eth_frame_t *) net_buf, 3);
+		memcpy(udp->data, "xyz", 3);
+
+		udp_send((eth_frame_t *) net_buf, 3);
 	}
 }
 

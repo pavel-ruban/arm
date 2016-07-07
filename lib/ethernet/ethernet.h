@@ -137,6 +137,7 @@ void arp_filter(eth_frame_t *frame, uint16_t len);
 void ip_filter(eth_frame_t *frame, uint16_t len);
 void icmp_filter(eth_frame_t *frame, uint16_t len);
 void udp_filter(eth_frame_t *frame, uint16_t len);
+void tcp_filter(eth_frame_t *frame, uint16_t len);
 
 void ip_reply(eth_frame_t *frame, uint16_t len);
 uint16_t ip_cksum(uint32_t sum, uint8_t *buf, uint16_t len);
@@ -168,6 +169,7 @@ typedef struct tcp_packet {
 // вычисляет указатель на данные
 #define tcp_get_data(tcp)    ((uint8_t*)(tcp) + tcp_head_size(tcp))
 
+
 // Коды состояния TCP
 typedef enum tcp_status_code {
     TCP_CLOSED,
@@ -185,6 +187,29 @@ typedef struct tcp_state {
     uint16_t remote_port;        // порт удалённого узла
     uint32_t remote_addr;        // IP-адрес удалённого узла
 } tcp_state_t;
+
+
+// Максимальное количество одновременно открытых соединений
+#define TCP_MAX_CONNECTIONS        2
+
+// Размер окна, который будем указывать в отправляемых пакетах
+#define TCP_WINDOW_SIZE            65535
+
+// Таймаут, после которого неактивные соединения будут прибиваться
+#define TCP_TIMEOUT                10 //s
+
+// Максимальный размер пакета, передаваемый при открытии соединения
+#define TCP_SYN_MSS                448
+
+
+// Пул TCP-соединений
+tcp_state_t tcp_pool[TCP_MAX_CONNECTIONS];
+
+// Режим отправки пакетов
+// Устанавливается в 1 после отправки пакета
+//  (следующие пакеты по умолчанию
+//    будут отправляться на тот же адрес)
+uint8_t tcp_use_resend;
 
 // Инициирует открытие нового соединения
 // При ошибке возвращает 0xff.
@@ -213,5 +238,5 @@ void tcp_closed(uint8_t id, uint8_t reset);
 //    len - сколько получено данных (может быть 0)
 //    closing - признак того, что соединение закрывается
 //        (и удалённый узел отдаёт последние данные из буффера)
-void tcp_data(uint8_t id, eth_frame_t *frame, uint16_t len, uint8_t closing);
 
+void tcp_data(uint8_t id, eth_frame_t *frame, uint16_t len, uint8_t closing);

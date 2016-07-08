@@ -103,7 +103,7 @@ void ip_filter(eth_frame_t *frame, uint16_t len)
 				udp_filter(frame, len);
 				break;
 			case IP_PROTOCOL_TCP:
-				tcp_filter(frame, len);
+				//tcp_filter(frame, len);
 				break;
 			}
 		}

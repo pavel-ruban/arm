@@ -4,6 +4,7 @@ extern char *term_var_info;
 
 uint8_t enc28j60_current_bank = 0;
 uint16_t enc28j60_rxrdpt = 0;
+uint8_t enc28j60_revid = 0;
 
 #define enc28j60_rx() spi_transmit(0xff, RECEIVE_BYTE, ETH_SPI_CH)
 #define enc28j60_tx(data) spi_transmit(data, SKIP_RECEIVE, ETH_SPI_CH)
@@ -194,6 +195,10 @@ void enc28j60_init(uint8_t *macadr)
 
 	// Enable interrupts and receive packet pending interrupt.
 	enc28j60_wcr(EIE, EIE_PKTIE);
+	enc28j60_revid = enc28j60_rcr(EREVID);
+
+	// Activate interrupts, if receive buffer is not empty, falling edge would be generated.
+	enc28j60_bfs(EIE, EIE_INTIE);
 }
 
 void enc28j60_send_packet(uint8_t *data, uint16_t len)

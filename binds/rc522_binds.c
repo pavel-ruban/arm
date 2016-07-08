@@ -1,8 +1,10 @@
 #include <stm32f10x_conf.h>
 #include <binds.h>
 
-
 extern GPIO_InitTypeDef GPIO_InitStructure;
+
+void (*rc522_select)();
+void (*rc522_release)();
 
 void rc522_1_select()
 {

@@ -20,8 +20,8 @@
 #define RC522_PCD_1		1
 #define RC522_PCD_2		2
 
-void (*rc522_select)();
-void (*rc522_release)();
+extern void (*rc522_select)();
+extern void (*rc522_release)();
 
 void rc522_1_select();
 void rc522_1_release();

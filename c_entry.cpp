@@ -9,6 +9,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include <stdint.h>
 #include <stm32f10x_conf.h>
+#pragma pack(1)
 
 extern "C" {
 #include <binds.h>
@@ -30,6 +31,7 @@ GPIO_InitTypeDef GPIO_InitStructure;
 ErrorStatus HSEStartUpStatus;
 
 extern uint8_t mac_addr[6];
+extern uint8_t enc28j60_revid;
 
 typedef struct {
 	uint8_t tag_id[4];
@@ -149,7 +151,7 @@ uint8_t get_pcd_id()
 void rfid_irq_tag_handler()
 {
 	__disable_irq();
-	uint8_t tag_id[4];
+	uint8_t tag_id[16];
 	uint8_t status = mfrc522_get_card_serial(tag_id);
 	__enable_irq();
 
@@ -264,6 +266,13 @@ extern "C" void TIM2_IRQHandler()
 		}
 		__enable_irq();
 	} while (pcd++ < RC522_PCD_2);
+
+    	// Check enc28j60 chip and restart if needed.
+	if (!enc28j60_revid || (enc28j60_revid != enc28j60_rcr(EREVID)) ||
+		(GPIO_ReadInputDataBit(ETH_GPIO, ETH_IRQ_PIN) == RESET && (EXTI_GetITStatus(EXTI_Line2) == RESET)))
+	{
+		enc28j60_init(mac_addr);
+	}
     }
 }
 
@@ -450,18 +459,6 @@ void tag_event_queue_processor()
 	}
 }
 
-extern uint16_t enc28j60_rxrdpt;
-void lan_poll()
-{
-	uint16_t len;
-	eth_frame_t *frame = (eth_frame_t *) net_buf;
-
-	while((len = eth_recv_packet(net_buf, sizeof(net_buf))))
-	{
-		eth_filter(frame, len);
-	}
-}
-
 extern "C" int main(void)
 {
 	rc522_pcd_select(RC522_PCD_1);
@@ -482,15 +479,14 @@ extern "C" int main(void)
 	rc522_pcd_select(RC522_PCD_1);
 	rc522_irq_prepare();
 
-	// Activate interrupts, if receive buffer is not empty, falling edge would be generated.
-	enc28j60_bfs(EIE, EIE_INTIE);
-
 	// Workers.
 	while (1)
 	{
 		// If cached tag did request, the even is stored to queue, send it to server
 		// in main thread.
 		tag_event_queue_processor();
+
+		continue;
 
 		eth_frame_t *frame = (eth_frame_t *) net_buf;
 		ip_packet_t *ip = (ip_packet_t *) (frame->data);

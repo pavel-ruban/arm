@@ -1,4 +1,12 @@
 #include <binds.h>
+// Режим отправки пакетов
+// Устанавливается в 1 после отправки пакета
+//  (следующие пакеты по умолчанию
+//    будут отправляться на тот же адрес)
+uint8_t tcp_use_resend;
+
+// Пул TCP-соединений
+tcp_state_t tcp_pool[TCP_MAX_CONNECTIONS];
 
 uint8_t tcp_listen(uint8_t id, eth_frame_t *frame)
 {

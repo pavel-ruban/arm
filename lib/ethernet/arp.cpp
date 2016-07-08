@@ -1,7 +1,8 @@
 #include <binds.h>
+#include <queue.h>
 
 // Размер ARP-кэша
-#define ARP_CACHE_SIZE      3
+#define ARP_CACHE_SIZE      10
 
 // ARP-кэш
 typedef struct arp_cache_entry {
@@ -9,15 +10,14 @@ typedef struct arp_cache_entry {
 	uint8_t mac_addr[6];
 } arp_cache_entry_t;
 
-uint8_t arp_cache_wr;
-arp_cache_entry_t arp_cache[ARP_CACHE_SIZE];
+Queue<arp_cache_entry_t, ARP_CACHE_SIZE> arp_cache;
 
 /*
  * ARP
  */
-void arp_filter(eth_frame_t *frame, uint16_t len)
+extern "C" void arp_filter(eth_frame_t *frame, uint16_t len)
 {
-	arp_message_t *msg = (void *)(frame->data);
+	arp_message_t *msg = (arp_message_t *)(frame->data);
 
 	if(len >= sizeof(arp_message_t))
 	{
@@ -37,15 +37,14 @@ void arp_filter(eth_frame_t *frame, uint16_t len)
 
 					break;
 
-					// ARP-ответ, добавляем узел в кэш
+				// ARP-ответ, добавляем узел в кэш
 				case ARP_TYPE_RESPONSE:
-					if(!arp_search_cache(msg->ip_addr_from))
+					if (!arp_search_cache(msg->ip_addr_from))
 					{
-						arp_cache[arp_cache_wr].ip_addr = msg->ip_addr_from;
-						memcpy(arp_cache[arp_cache_wr].mac_addr, msg->mac_addr_from, 6);
-						arp_cache_wr++;
-						if(arp_cache_wr == ARP_CACHE_SIZE)
-							arp_cache_wr = 0;
+						arp_cache_entry_t cached;
+						cached.ip_addr = msg->ip_addr_from;
+						memcpy(cached.mac_addr, msg->mac_addr_from, 6);
+						arp_cache.push_back(cached);
 					}
 					break;
 			}
@@ -56,11 +55,10 @@ void arp_filter(eth_frame_t *frame, uint16_t len)
 // Поиск в ARP-кэше
 uint8_t *arp_search_cache(uint32_t node_ip_addr)
 {
-	uint8_t i;
-	for(i = 0; i < ARP_CACHE_SIZE; ++i)
+	for (auto it = arp_cache.begin(); it != arp_cache.end(); ++it)
 	{
-		if(arp_cache[i].ip_addr == node_ip_addr)
-			return arp_cache[i].mac_addr;
+		if (it->ip_addr == node_ip_addr)
+			return it->mac_addr;
 	}
 	return 0;
 }
@@ -68,10 +66,10 @@ uint8_t *arp_search_cache(uint32_t node_ip_addr)
 // ARP-ресолвер
 // Если MAC-адрес узла известен, возвращает его
 // Неизвестен - посылает запрос и возвращает 0
-uint8_t *arp_resolve(uint32_t node_ip_addr)
+extern "C" uint8_t *arp_resolve(uint32_t node_ip_addr)
 {
-	eth_frame_t *frame = (void*)net_buf;
-	arp_message_t *msg = (void*)(frame->data);
+	eth_frame_t *frame = (eth_frame_t *) net_buf;
+	arp_message_t *msg = (arp_message_t *) (frame->data);
 	uint8_t *mac;
 
 	// Ищем узел в кэше

@@ -10,17 +10,16 @@
 
 #define MAC_ADDR			{0x00,0x4e,0x42,0x4c,0x55,0x46}
 // In case of external requests, the dest mac address should be the GATEWAY MAC ADDRESS.
-#define DEST_MAC_ADDR			{0x54,0x04,0xa6,0x3f,0xaf,0xc1}
-//#define DEST_MAC_ADDR			{0x00,0x24,0x1d,0xc6,0x90,0xc5}
+//#define DEST_MAC_ADDR			{0x54,0x04,0xa6,0x3f,0xaf,0xc1}
+#define DEST_MAC_ADDR			{0x00,0x24,0x1d,0xc6,0x90,0xc5}
 //#define DEST_MAC_ADDR			{0xc8,0xd3,0xa3,0x4b,0x78,0x5c}
-#define DEST_IP_ADDR			inet_addr(192,168,1,113)
-#define IP_ADDR				inet_addr(192,168,1,74)
-#define IP_GATEWAY			inet_addr(192,168,1,1)
+#define DEST_IP_ADDR			inet_addr(192,168,0,43)
+#define IP_ADDR				inet_addr(192,168,0,74)
+#define IP_GATEWAY			inet_addr(192,168,0,1)
 #define IP_MASK 			inet_addr(255,255,255,0);
 #define APP_PORT			37208
 
 #define IP_PACKET_TTL		64
-
 
 extern uint32_t dest_ip_addr;
 
@@ -145,6 +144,8 @@ extern "C" {
 #endif
 
 void ip_filter(eth_frame_t *frame, uint16_t len);
+
+void ip_resend(eth_frame_t *frame, uint16_t len);
 void icmp_filter(eth_frame_t *frame, uint16_t len);
 void udp_filter(eth_frame_t *frame, uint16_t len);
 void tcp_filter(eth_frame_t *frame, uint16_t len);
@@ -229,7 +230,7 @@ uint8_t tcp_open(uint32_t addr, uint16_t port, uint16_t local_port);
 //    (т.е. из коллбэков tcp_opened и tcp_data )
 // close - инициирует закрытие соединения. Когда соединение будет закрыто,
 //    будет вызван коллбэк tcp_closed
-void tcp_send(uint8_t id, eth_frame_t *frame, uint16_t len, uint8_t close);
+void tcp_send(uint8_t id, eth_frame_t *frame, uint16_t len, uint8_t push, uint8_t close);
 //Вызывается при получении запроса на соединение
 // Приложение возвращает ненулевое значение, если подтверждает соединение
 uint8_t tcp_listen(uint8_t id, eth_frame_t *frame);
@@ -247,4 +248,4 @@ void tcp_closed(uint8_t id, uint8_t reset);
 //        (и удалённый узел отдаёт последние данные из буффера)
 
 void tcp_data(uint8_t id, eth_frame_t *frame, uint16_t len, uint8_t closing);
-
+void tcp_poll();

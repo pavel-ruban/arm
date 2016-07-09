@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ethernet.h>
+
 // Init ENC28J60
 void enc28j60_init(uint8_t *macadr);
 
@@ -27,7 +29,7 @@ void enc28j60_write_phy(uint8_t adr, uint16_t data);
 #define ENC28J60_RXSIZE		0x1A00
 #define ENC28J60_BUFEND		(ENC28J60_BUFSIZE-1)
 
-#define ENC28J60_MAXFRAME	196
+#define ENC28J60_MAXFRAME	TCP_SYN_MSS + sizeof(eth_frame_t) + sizeof(ip_packet_t) + sizeof(tcp_packet_t)
 
 #define ENC28J60_RXSTART	0
 #define ENC28J60_RXEND		(ENC28J60_RXSIZE-1)

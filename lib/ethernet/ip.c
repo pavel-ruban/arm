@@ -8,39 +8,53 @@
 // Если MAC-адрес узла/гейта ещё не определён, функция возвращает 0
 uint8_t ip_send(eth_frame_t *frame, uint16_t len)
 {
-    ip_packet_t *ip = (void*)(frame->data);
-    uint32_t route_ip;
-    uint8_t *mac_addr_to;
+	ip_packet_t *ip = (void*)(frame->data);
+	uint32_t route_ip;
+	uint8_t *mac_addr_to;
 
-    // Если узел в локалке, отправляем пакет ему
-    //    если нет, то гейту
-    if( ((ip->to_addr ^ ip_addr) & ip_mask) == 0 )
-        route_ip = ip->to_addr;
-    else
-        route_ip = ip_gateway;
+	// Если узел в локалке, отправляем пакет ему
+	//    если нет, то гейту
+	if( ((ip->to_addr ^ ip_addr) & ip_mask) == 0 )
+		route_ip = ip->to_addr;
+	else
+		route_ip = ip_gateway;
 
-    // Ресолвим MAC-адрес
-    if(!(mac_addr_to = arp_resolve(route_ip)))
-        return 0;
+	// Ресолвим MAC-адрес
+	if(!(mac_addr_to = arp_resolve(route_ip)))
+		return 0;
 
-    // Отправляем пакет
-    len += sizeof(ip_packet_t);
+	// Отправляем пакет
+	len += sizeof(ip_packet_t);
 
-    memcpy(frame->to_addr, mac_addr_to, 6);
-    frame->type = ETH_TYPE_IP;
+	memcpy(frame->to_addr, mac_addr_to, 6);
+	frame->type = ETH_TYPE_IP;
 
-    ip->ver_head_len = 0x45;
-    ip->tos = 0;
-    ip->total_len = htons(len);
-    ip->fragment_id = 0;
-    ip->flags_framgent_offset = 0;
-    ip->ttl = IP_PACKET_TTL;
-    ip->cksum = 0;
-    ip->from_addr = ip_addr;
-    ip->cksum = ip_cksum(0, (void*)ip, sizeof(ip_packet_t));
+	ip->ver_head_len = 0x45;
+	ip->tos = 0;
+	ip->total_len = htons(len);
+	ip->fragment_id = 0;
+	ip->flags_framgent_offset = 0;
+	ip->ttl = IP_PACKET_TTL;
+	ip->cksum = 0;
+	ip->from_addr = ip_addr;
+	ip->cksum = ip_cksum(0, (void*)ip, sizeof(ip_packet_t));
 
-    eth_send(frame, len);
-    return 1;
+	eth_send(frame, len);
+	return 1;
+}
+
+void ip_resend(eth_frame_t *frame, uint16_t len)
+{
+	ip_packet_t *packet = (void*)(frame->data);
+
+	packet->total_len = htons(len + sizeof(ip_packet_t));
+	packet->fragment_id = 0;
+	packet->flags_framgent_offset = 0;
+	packet->ttl = IP_PACKET_TTL;
+	packet->cksum = 0;
+	packet->cksum = ip_cksum(0, (void*)packet, sizeof(ip_packet_t));
+
+	eth_send((void*)frame, len + sizeof(ip_packet_t));
 }
 
 /*
@@ -87,7 +101,7 @@ void ip_filter(eth_frame_t *frame, uint16_t len)
 	if (len >= sizeof(ip_packet_t))
 	{
 		if( (packet->ver_head_len == 0x45) &&
-			(packet->to_addr == ip_addr) )
+				(packet->to_addr == ip_addr) )
 		{
 			len = ntohs(packet->total_len) -
 				sizeof(ip_packet_t);
@@ -95,16 +109,16 @@ void ip_filter(eth_frame_t *frame, uint16_t len)
 			switch(packet->protocol)
 			{
 #ifdef WITH_ICMP
-			case IP_PROTOCOL_ICMP:
-				icmp_filter(frame, len);
-				break;
+				case IP_PROTOCOL_ICMP:
+					icmp_filter(frame, len);
+					break;
 #endif
-			case IP_PROTOCOL_UDP:
-				udp_filter(frame, len);
-				break;
-			case IP_PROTOCOL_TCP:
-				//tcp_filter(frame, len);
-				break;
+				case IP_PROTOCOL_UDP:
+					udp_filter(frame, len);
+					break;
+				case IP_PROTOCOL_TCP:
+					tcp_filter(frame, len);
+					break;
 			}
 		}
 	}

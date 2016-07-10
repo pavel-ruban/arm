@@ -65,8 +65,11 @@ memcpy-armv7m.o: memcpy-armv7m.S
 memset-armv7m.o: memset-armv7m.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+FIRMWARE_OBJS = c_entry.o entry.o newlib_stubs.o
+STD_LIB_OBJS = memcpy-armv7m.o memset-armv7m.o
+
 # main
-$(FIRMWARE_ELF): c_entry.o entry.o newlib_stubs.o $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) $(HARDWARE_LIBS_OUT) memcpy-armv7m.o memset-armv7m.o
+$(FIRMWARE_ELF): $(FIRMWARE_OBJS) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) $(HARDWARE_LIBS_OUT) $(STD_LIB_OBJS)
 	$(LD) $(LDFLAGS) c_entry.o entry.o $(HARDWARE_LIBS_OUT) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) newlib_stubs.o memcpy-armv7m.o memset-armv7m.o --output $@
 
 $(FIRMWARE_BIN): $(FIRMWARE_ELF)
@@ -163,6 +166,45 @@ HARDWARE_LIBS_OBJS = 					\
 $(HARDWARE_LIBS_OUT): $(HARDWARE_LIBS_OBJS)
 	$(AR) $(ARFLAGS) $@ $(HARDWARE_LIBS_OBJS)
 
+
+# @todo integrate autodependencies to this makefile
+#BUILD_DIRS := $(BINDS_DIR) $(STD_PERIPH_DIR) $(HARDWARE_LIBS_DIR) $(NEWLIB_DIR) .
+#
+#DEPDIR := .d
+#$(shell mkdir -p $(DEPDIR) > /dev/null)
+#DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$(notdir $*).Td
+#
+#COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
+#COMPILE.cc = $(CXX) $(DEPFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
+#POSTCOMPILE = mv -f $(DEPDIR)/$$*.Td $(DEPDIR)/$$*.d
+#
+#% : %.c
+#% : %.c $(DEPDIR)/%.d
+#	$(COMPILE.c) $(OUTPUT_OPTION) $<
+#	$(POSTCOMPILE)
+#
+#$(OBJDIR)/%.o : %.c
+#$(OBJDIR)/%.o : %.c $(DEPDIR)/%.d
+#	$(COMPILE.c) $(OUTPUT_OPTION) $<
+#	$(POSTCOMPILE)
+
+#define make-cpp-goal
+#$1/%.o : %.cpp
+#$1/%.o : %.cpp $(DEPDIR)/%.d
+#	$(COMPILE.cc) $(OUTPUT_OPTION) $$*.o $$<
+#	$(POSTCOMPILE)
+#endef
+#
+#$(DEPDIR)/%.d: ;
+#.PRECIOUS: $(DEPDIR)/%.d
+
+#$(foreach bdir,$(BUILD_DIRS),$(eval $(call make-c-goal,$(bdir))))
+#$(foreach bdir,$(BUILD_DIRS),$(eval $(call make-cpp-goal,$(bdir))))
+
+#ALL_OBJS := $(HARDWARE_LIBS_OBJS) $(BINDS_OBJS) $(LIBSTM32_OBJS) $(NEWLIB_OBJS) $(FIRMWARE_OBJS) $(STD_LIB_OBJS)
+#
+#-include $(patsubst %,$(DEPDIR)/%.d,$(basename $(ALL_OBJS)))
+
 clean:
-	-find . -type f -name '*.o' -follow -exec rm {} \;
+	-find  -type f -a \( -name '*.o' -o -name '*.d'  -o -name '*.Td' \) -exec rm "{}" \;
 	-rm $(BINDS_OUT) $(HARDWARE_LIBS_OUT) $(NEWLIB_OUT) $(LIBSTM32_OUT) $(FIRMWARE_ELF) $(FIRMWARE_BIN) *.map

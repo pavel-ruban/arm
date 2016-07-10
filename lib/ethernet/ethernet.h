@@ -163,6 +163,9 @@ uint16_t ip_cksum(uint32_t sum, uint8_t *buf, uint16_t len);
 #define TCP_FLAG_SYN        0x02
 #define TCP_FLAG_FIN        0x01
 
+#define TCP_REXMIT_TIMEOUT 100
+#define TCP_REXMIT_LIMIT 30
+
 typedef struct tcp_packet {
     uint16_t from_port;        // порт отправителя
     uint16_t to_port;        // порт получателя
@@ -193,12 +196,60 @@ typedef enum tcp_status_code {
 
 // Состояние TCP
 typedef struct tcp_state {
-    tcp_status_code_t status;    // стейт
-    uint16_t rx_time;            // время когда был получен последний пакет
-    uint16_t local_port;        // локальный порт
-    uint16_t remote_port;        // порт удалённого узла
-    uint32_t remote_addr;        // IP-адрес удалённого узла
+
+    // Тут всё по-прежнему
+    tcp_status_code_t status;
+    uint32_t event_time;
+    uint32_t seq_num;
+    uint32_t ack_num;
+    uint32_t remote_addr;
+    uint16_t remote_port;
+    uint16_t local_port;
+
+    // Соединение закрывается?
+    uint8_t is_closing;
+
+    // Количество выполненных ретрансмиссий
+    uint8_t rexmit_count;
+
+    // Сохранённый указатель потока
+    uint32_t seq_num_saved;
 } tcp_state_t;
+
+// Режим отправки пакета
+//    используется в основном для оптимизации отправки
+typedef enum tcp_sending_mode {
+    // Отправляем новый пакет.
+    // При этом резолвим MAC-адрес получателя,
+    //    выставляем все поля пакета,
+    //    залиыаем данные,
+    //    считаем чексумму.
+    // Самый медленный способ отправки.
+    TCP_SENDING_SEND,
+
+    // Только что получили пакет от удалённого узла и
+    //    отправляем ему пакет в ответ.
+    // При этом обмениваем в нём адреса получателя/отправителя,
+    //    обновляем указатели seq/ack,
+    //    заливаем новые данные,
+    //    пересчитываем чексумму.
+    //    Затем тупо пинаем пакет туда, откуда он пришёл
+    TCP_SENDING_REPLY,
+
+    // Только что отправляли пакет узлу и
+    //    отправляем следом ещё один.
+    // При этом заливаем новые данные,
+    //    обновляем указатели seq/ack,
+    //    пересчитываем чексумму,
+    //    все адреса оставляем те же.
+    // Самый быстрый способ отправки.
+    // После отправки любого пакета, этот режим
+    //    активируется автоматически.
+    TCP_SENDING_RESEND
+} tcp_sending_mode_t;
+
+extern tcp_sending_mode_t tcp_send_mode;
+extern uint8_t tcp_ack_sent;
 
 // Максимальное количество одновременно открытых соединений
 #define TCP_MAX_CONNECTIONS        2
@@ -211,6 +262,11 @@ typedef struct tcp_state {
 
 // Максимальный размер пакета, передаваемый при открытии соединения
 #define TCP_SYN_MSS                448
+
+// Отправить блок с установленным флагом PSH
+#define TCP_OPTION_PUSH            0x01
+// Отправить блок и закрыть соединение
+#define TCP_OPTION_CLOSE        0x02
 
 // Пул TCP-соединений
 extern tcp_state_t tcp_pool[TCP_MAX_CONNECTIONS];
@@ -232,7 +288,8 @@ uint8_t tcp_open(uint32_t addr, uint16_t port, uint16_t local_port);
 //    (т.е. из коллбэков tcp_opened и tcp_data )
 // close - инициирует закрытие соединения. Когда соединение будет закрыто,
 //    будет вызван коллбэк tcp_closed
-void tcp_send(uint8_t id, eth_frame_t *frame, uint16_t len, uint8_t push, uint8_t close);
+void tcp_send(uint8_t id, eth_frame_t *frame, uint16_t len, uint8_t options);
+uint8_t tcp_xmit(tcp_state_t *st, eth_frame_t *frame, uint16_t len);
 //Вызывается при получении запроса на соединение
 // Приложение возвращает ненулевое значение, если подтверждает соединение
 uint8_t tcp_listen(uint8_t id, eth_frame_t *frame);
@@ -249,7 +306,8 @@ void tcp_closed(uint8_t id, uint8_t reset);
 //    closing - признак того, что соединение закрывается
 //        (и удалённый узел отдаёт последние данные из буффера)
 
-void tcp_data(uint8_t id, eth_frame_t *frame, uint16_t len, uint8_t closing);
+void tcp_read(uint8_t id, eth_frame_t *frame, uint8_t re);
+
 void tcp_poll();
 
 // Порт DHCP-сервера

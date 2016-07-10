@@ -153,7 +153,7 @@ void dhcp_poll()
 	if(RTC_GetCounter() >= dhcp_retry_time)
 	{
 		// Придумываем идентификатор транзакции
-		dhcp_transaction_id = RTC_GetCounter();
+		dhcp_transaction_id = ticks;
 
 		// Опускаем интерфейс (если истекла аренда)
 		ip_addr = 0;
@@ -193,7 +193,7 @@ void dhcp_poll()
 			(dhcp_status == DHCP_ASSIGNED))
 	{
 		// Придумываем идентификатор транзакции
-		dhcp_transaction_id = RTC_GetCounter();
+		dhcp_transaction_id = ticks;
 
 		// Отправляем запрос
 		ip->to_addr = dhcp_server;

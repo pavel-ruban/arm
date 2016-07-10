@@ -9,6 +9,8 @@
 .word	mem_manage_exception
 .word	bus_fault_exception
 .word	usage_fault_exception
+.org	0x3C
+.word	SysTick_Handler
 .org	0x58
 .word	EXTI0_IRQHandler
 .org	0x60

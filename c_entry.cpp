@@ -32,6 +32,7 @@ ErrorStatus HSEStartUpStatus;
 
 extern uint8_t mac_addr[6];
 extern uint8_t enc28j60_revid;
+volatile uint32_t ticks;
 
 typedef struct {
 	uint8_t tag_id[4];
@@ -276,7 +277,11 @@ extern "C" void TIM2_IRQHandler()
 
 	uint16_t phstat1 = enc28j60_read_phy(PHSTAT1);
 	// Если ethernet провод вытаскивали, обновить DHCP.
-	if(!(phstat1 & PHSTAT1_LLSTAT))
+	// Пока отключено, т.к. по непонятным причинам LLSTAT падает иногда
+	// хотя коннект сохраняется, что вызывает провалы в доступности интерфейса на 3-10 секунд,
+	// пока интерфейс не поднимится по DHCP заного, однако если согласно LLSTAT линк выключен
+	// но мы не гасим интерфейс он продолжает нормально работать.
+	if(0 && !(phstat1 & PHSTAT1_LLSTAT))
 	{
 		// Обновим адрес через 5 секунд
 		//  (после того, как линк появится)
@@ -289,6 +294,13 @@ extern "C" void TIM2_IRQHandler()
 		ip_gateway = 0;
 	}
     }
+}
+
+extern "C" void SysTick_Handler (void)
+{
+	ticks++;
+
+	open_node();
 }
 
 extern "C" void EXTI2_IRQHandler()
@@ -388,6 +400,7 @@ extern "C" void EXTI15_10_IRQHandler()
 
 extern "C" void interrupt_initialize();
 extern "C" void initialize_timer();
+extern "C" void initialize_systick();
 
 extern "C" void __initialize_hardware()
 {
@@ -425,6 +438,7 @@ extern "C" void __initialize_hardware()
 
 	interrupt_initialize();
 	initialize_timer();
+	initialize_systick();
 }
 
 extern "C" void __reset_hardware()
@@ -453,13 +467,13 @@ void initialize_timer()
 {
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 
-    TIM_TimeBaseInitTypeDef timerInitStructure;
-    timerInitStructure.TIM_Prescaler = 40000;
-    timerInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
-    timerInitStructure.TIM_Period = 1800;
-    timerInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-    timerInitStructure.TIM_RepetitionCounter = 0;
-    TIM_TimeBaseInit(TIM2, &timerInitStructure);
+    TIM_TimeBaseInitTypeDef TimerInitStructure;
+    TimerInitStructure.TIM_Prescaler = 40000;
+    TimerInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
+    TimerInitStructure.TIM_Period = 1800;
+    TimerInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+    TimerInitStructure.TIM_RepetitionCounter = 0;
+    TIM_TimeBaseInit(TIM2, &TimerInitStructure);
     TIM_Cmd(TIM2, ENABLE);
 
     TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
@@ -488,6 +502,7 @@ extern "C" int main(void)
 
 	// Check if timer started.
 	uint8_t status = mfrc522_read(Status1Reg);
+	uint32_t poll_time;
 
 	__enable_irq();
 
@@ -506,20 +521,8 @@ extern "C" int main(void)
 		// in main thread.
 		tag_event_queue_processor();
 
-		continue;
-
-		eth_frame_t *frame = (eth_frame_t *) net_buf;
-		ip_packet_t *ip = (ip_packet_t *) (frame->data);
-
-		ip->to_addr = dest_ip_addr;
-
-		udp_packet_t *udp = (udp_packet_t *) (ip->data);
-		udp->from_port = APP_PORT;
-		udp->to_port = APP_PORT;
-
-		memcpy(udp->data, "xyz", 3);
-
-		udp_send((eth_frame_t *) net_buf, 3);
+		if (ticks - poll_time > 100)
+			tcp_poll();
 	}
 }
 
@@ -530,8 +533,10 @@ void interrupt_initialize()
 	EXTI_InitTypeDef EXTI_InitStructure;
 	// NVIC structure to set up NVIC controller
 	NVIC_InitTypeDef NVIC_InitStructure;
+
 	// GPIO structure used to initialize Button pins
 	// Connect EXTI Lines to Button Pins
+
 	// PCD1
 	GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource10);
 	// PCD2
@@ -541,111 +546,86 @@ void interrupt_initialize()
 	// Button
 	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA, GPIO_PinSource1);
 
-	// Select EXTI line0
+	// IRQ Driven Button.
 	EXTI_InitStructure.EXTI_Line = EXTI_Line0;
-	//select interrupt mode
 	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-	//generate interrupt on rising edge
 	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
 	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-	//send values to registers
 	EXTI_Init(&EXTI_InitStructure);
+	//EXTI_ClearITPendingBit(EXTI_Line0);
 
-	// Clear STM32 irq bit.
-	EXTI_ClearITPendingBit(EXTI_Line0);
-
-	// Select EXTI line0
+	// RC522 1 board (PCD).
 	EXTI_InitStructure.EXTI_Line = EXTI_Line10;
-	//select interrupt mode
 	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-	//generate interrupt on rising edge
 	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
 	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-	//send values to registers
 	EXTI_Init(&EXTI_InitStructure);
+	//EXTI_ClearITPendingBit(EXTI_Line10);
 
-	// Clear STM32 irq bit.
-	EXTI_ClearITPendingBit(EXTI_Line10);
-
-	// Select EXTI line0
+	// RC522 2 board (PCD).
 	EXTI_InitStructure.EXTI_Line = EXTI_Line11;
-	//select interrupt mode
 	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-	//generate interrupt on rising edge
 	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
 	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-	//send values to registers
 	EXTI_Init(&EXTI_InitStructure);
+	//EXTI_ClearITPendingBit(EXTI_Line11);
 
-	// Clear STM32 irq bit.
-	EXTI_ClearITPendingBit(EXTI_Line11);
-
-	// Select EXTI line0
+	// ENC28J60
 	EXTI_InitStructure.EXTI_Line = EXTI_Line2;
-	//select interrupt mode
 	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-	//generate interrupt on rising edge
 	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
 	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-	//send values to registers
 	EXTI_Init(&EXTI_InitStructure);
+	//EXTI_ClearITPendingBit(EXTI_Line2);
 
-	// Clear STM32 irq bit.
-	EXTI_ClearITPendingBit(EXTI_Line2);
-
-	// Configure NVIC
-	// Select NVIC channel to configure
+	// RC522 Timer And PICC Receive Interrupt.
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
-	// Set priority to lowest
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x08;
-	// Set subpriority to lowest
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x08;
-	// Enable IRQ channel
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	// Update NVIC registers
 	NVIC_Init(&NVIC_InitStructure);
+	//NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
 
-	NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
-
-	// Configure NVIC
-	// Select NVIC channel to configure
+	// IRQ Driven Button, used as human interface for opening EMI lock.
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI0_IRQn;
-	// Set priority to lowest
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x03;
-	// Set subpriority to lowest
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x03;
-	// Enable IRQ channel
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	// Update NVIC registers
 	NVIC_Init(&NVIC_InitStructure);
+	//NVIC_ClearPendingIRQ(EXTI0_IRQn);
 
-	NVIC_ClearPendingIRQ(EXTI0_IRQn);
-
-	// Configure NVIC
-	// Select NVIC channel to configure
+	// ENC28J60 Interrupt for receinving packets.
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI2_IRQn;
-	// Set priority to lowest
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x07;
-	// Set subpriority to lowest
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x07;
-	// Enable IRQ channel
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	// Update NVIC registers
 	NVIC_Init(&NVIC_InitStructure);
+	//NVIC_ClearPendingIRQ(EXTI2_IRQn);
 
-	NVIC_ClearPendingIRQ(EXTI2_IRQn);
-
-	// Configure NVIC
-	// Select NVIC channel to configure
+	// TIM2 timer, used as on second watchdog for enc28j60, rc522.
+	// Also do some periodical not priority calls.
 	NVIC_InitStructure.NVIC_IRQChannel = TIM2_IRQn;
-	// Set priority to lowest
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x0f;
-	// Set subpriority to lowest
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x0f;
-	// Enable IRQ channel
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	// Update NVIC registers
 	NVIC_Init(&NVIC_InitStructure);
+
+	// Systick timer, used for milliseconds granularity
+	// and milliseconds set timeouts.
+	NVIC_InitStructure.NVIC_IRQChannel = SysTick_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x00;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x00;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+}
+
+extern "C" void initialize_systick()
+{
+   RCC_ClocksTypeDef RCC_Clocks;
+   RCC_GetClocksFreq(&RCC_Clocks);
+
+   // 1 millisecond tick.
+   SysTick_Config(RCC_Clocks.HCLK_Frequency / (1000));
 }
 
 /*******************************************************************************

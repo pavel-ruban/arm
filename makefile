@@ -156,6 +156,7 @@ HARDWARE_LIBS_OBJS = 					\
 	$(HARDWARE_LIBS_DIR)/ethernet/icmp.o		\
 	$(HARDWARE_LIBS_DIR)/ethernet/ip.o		\
 	$(HARDWARE_LIBS_DIR)/ethernet/tcp.o		\
+	$(HARDWARE_LIBS_DIR)/ethernet/dhcp.o		\
 	$(HARDWARE_LIBS_DIR)/ethernet/udp.o		\
 	$(HARDWARE_LIBS_DIR)/enc28j60/enc28j60.o
 

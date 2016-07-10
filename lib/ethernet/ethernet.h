@@ -36,6 +36,8 @@ extern uint32_t dest_ip_addr;
 #define inet_addr(a,b,c,d)		( ((uint32_t)a) | ((uint32_t)b << 8) |\
 								((uint32_t)c << 16) | ((uint32_t)d << 24) )
 
+#define ip_broadcast (ip_addr | ~ip_mask)
+
 /*
  * Ethernet
  */
@@ -249,3 +251,92 @@ void tcp_closed(uint8_t id, uint8_t reset);
 
 void tcp_data(uint8_t id, eth_frame_t *frame, uint16_t len, uint8_t closing);
 void tcp_poll();
+
+// Порт DHCP-сервера
+#define DHCP_SERVER_PORT        htons(0x0043)
+// Порт DHCP-клиента
+#define DHCP_CLIENT_PORT        htons(0x0044)
+
+// Тип операции (запрос/ответ)
+#define DHCP_OP_REQUEST            1
+#define DHCP_OP_REPLY            2
+
+// Тип аппаратного адреса (Ethernet)
+#define DHCP_HW_ADDR_TYPE_ETH    1
+
+// Флаг - широковещательный пакет
+//  (если флаг установлен, ответ
+//  тоже будет широковещательным)
+#define DHCP_FLAG_BROADCAST        htons(0x8000)
+
+// Волшебная кука
+#define DHCP_MAGIC_COOKIE        htonl(0x63825363)
+
+// Формат DHCP-сообщения
+typedef struct dhcp_message {
+    uint8_t operation; // Операция (запрос или ответ)
+    uint8_t hw_addr_type; // Тип адреса = 1 (Ethernet)
+    uint8_t hw_addr_len; // Длина адреса = 6 (MAC-адрес)
+    uint8_t unused1; // Не юзаем
+    uint32_t transaction_id; // Идентификатор транзакции
+    uint16_t second_count; // Время с начала операции
+    uint16_t flags; // Флаги
+    uint32_t client_addr; // Адрес клиента (при обновлении)
+    uint32_t offered_addr; // Предложенный адрес
+    uint32_t server_addr; // Адрес сервера
+    uint32_t unused2; // Не юзаем
+    uint8_t hw_addr[16]; // Наш MAC-адрес
+    uint8_t unused3[192]; // Не юзаем
+    uint32_t magic_cookie; // Волшебная кука
+    uint8_t options[]; // Опции
+} dhcp_message_t;
+
+// Коды опций
+#define DHCP_CODE_PAD            0        // Выравнивание
+#define DHCP_CODE_END            255        // Конец
+#define DHCP_CODE_SUBNETMASK    1        // Маска подсети
+#define DHCP_CODE_GATEWAY        3        // Гейт
+#define DHCP_CODE_REQUESTEDADDR    50        // Выбранный IP-адрес
+#define DHCP_CODE_LEASETIME        51        // Время аренды адреса
+#define DHCP_CODE_MESSAGETYPE    53        // Тип сообщения
+#define DHCP_CODE_DHCPSERVER    54        // DHCP-сервер
+#define DHCP_CODE_RENEWTIME        58        // Время до обновления адреса
+#define DHCP_CODE_REBINDTIME    59        // Время до выбора другого сервера
+
+// DHCP-опция
+typedef struct dhcp_option {
+    uint8_t code;
+    uint8_t len;
+    uint8_t data[];
+} dhcp_option_t;
+
+// Тип сообщения
+#define DHCP_MESSAGE_DISCOVER    1    // Поиск
+#define DHCP_MESSAGE_OFFER        2    // Предложение адреса
+#define DHCP_MESSAGE_REQUEST    3    // Запрос адреса
+#define DHCP_MESSAGE_ACK        5    // Подтверждение
+
+// Состояние DHCP
+typedef enum dhcp_status_code {
+    DHCP_INIT, // Адрес не выделен
+    DHCP_ASSIGNED, // Адрес выделен
+    DHCP_WAITING_OFFER, // Ждём ответа сервера
+    DHCP_WAITING_ACK // Ждём подтверждение от сервера
+} dhcp_status_code_t;
+
+// Состояние DHCP
+extern dhcp_status_code_t dhcp_status; // стейт
+extern uint32_t dhcp_retry_time; // время повторной попытки получения адреса
+
+// Эта штука добавляет опцию в пакет и
+//  сдвигает указатель к концу опции
+//   ptr - указатель на начало опции
+#define dhcp_add_option(ptr, optcode, type, value) \
+    ((dhcp_option_t*)ptr)->code = optcode; \
+    ((dhcp_option_t*)ptr)->len = sizeof(type); \
+    *((type *) (((dhcp_option_t *) ptr)->data)) = value; \
+    ptr += sizeof(dhcp_option_t) + sizeof(type); \
+    if (sizeof(type) & 1) *(ptr++) = 0; // добавляем пад
+
+void dhcp_filter(eth_frame_t *frame, uint16_t len);
+void dhcp_poll();

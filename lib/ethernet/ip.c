@@ -12,21 +12,33 @@ uint8_t ip_send(eth_frame_t *frame, uint16_t len)
 	uint32_t route_ip;
 	uint8_t *mac_addr_to;
 
-	// Если узел в локалке, отправляем пакет ему
-	//    если нет, то гейту
-	if( ((ip->to_addr ^ ip_addr) & ip_mask) == 0 )
-		route_ip = ip->to_addr;
+	// Вот здесь мы допишем:
+	//  если адрес получателя - широковещательный
+	//  адрес нашей подсети, то юзаем широковещательный MAC
+	if(ip->to_addr == ip_broadcast)
+	{
+		// use broadcast MAC
+		memset(frame->to_addr, 0xff, 6);
+	}
+	// Иначе, делаем всё как обычно
 	else
-		route_ip = ip_gateway;
+	{
+		// Если узел в локалке, отправляем пакет ему
+		//    если нет, то гейту
+		if( ((ip->to_addr ^ ip_addr) & ip_mask) == 0 )
+			route_ip = ip->to_addr;
+		else
+			route_ip = ip_gateway;
 
-	// Ресолвим MAC-адрес
-	if(!(mac_addr_to = arp_resolve(route_ip)))
-		return 0;
+		// Ресолвим MAC-адрес
+		if(!(mac_addr_to = arp_resolve(route_ip)))
+			return 0;
+
+		memcpy(frame->to_addr, mac_addr_to, 6);
+	}
 
 	// Отправляем пакет
 	len += sizeof(ip_packet_t);
-
-	memcpy(frame->to_addr, mac_addr_to, 6);
 	frame->type = ETH_TYPE_IP;
 
 	ip->ver_head_len = 0x45;
@@ -96,29 +108,39 @@ void ip_reply(eth_frame_t *frame, uint16_t len)
 
 void ip_filter(eth_frame_t *frame, uint16_t len)
 {
+	uint16_t hcs;
 	ip_packet_t *packet = (void*)(frame->data);
 
 	if (len >= sizeof(ip_packet_t))
 	{
-		if( (packet->ver_head_len == 0x45) &&
-				(packet->to_addr == ip_addr) )
+		hcs = packet->cksum;
+		// В поле суммы при расчете для проверки должен быть нуль иначе ошибка.
+		packet->cksum = 0;
+
+		if ((packet->ver_head_len == 0x45) &&
+			(ip_cksum(0, (void *) packet, sizeof(ip_packet_t)) == hcs)
+			&& ((packet->to_addr == ip_addr) || (packet->to_addr == ip_broadcast)))
 		{
-			len = ntohs(packet->total_len) -
-				sizeof(ip_packet_t);
+			len = ntohs(packet->total_len) - sizeof(ip_packet_t);
+			// Восстановим прошедшую валидацию сумму.
+			packet->cksum = hcs;
 
 			switch(packet->protocol)
 			{
-#ifdef WITH_ICMP
+				#ifdef WITH_ICMP
 				case IP_PROTOCOL_ICMP:
 					icmp_filter(frame, len);
 					break;
-#endif
+				#endif
+
 				case IP_PROTOCOL_UDP:
 					udp_filter(frame, len);
 					break;
+
 				case IP_PROTOCOL_TCP:
 					tcp_filter(frame, len);
 					break;
+
 			}
 		}
 	}

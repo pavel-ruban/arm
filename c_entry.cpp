@@ -273,6 +273,21 @@ extern "C" void TIM2_IRQHandler()
 	{
 		enc28j60_init(mac_addr);
 	}
+
+	uint16_t phstat1 = enc28j60_read_phy(PHSTAT1);
+	// Если ethernet провод вытаскивали, обновить DHCP.
+	if(!(phstat1 & PHSTAT1_LLSTAT))
+	{
+		// Обновим адрес через 5 секунд
+		//  (после того, как линк появится)
+		dhcp_status = DHCP_INIT;
+		dhcp_retry_time = RTC_GetCounter() + 3;
+
+		// Линка нет - опускаем интерфейс
+		ip_addr = 0;
+		ip_mask = 0;
+		ip_gateway = 0;
+	}
     }
 }
 
@@ -469,6 +484,8 @@ extern "C" int main(void)
 
 	enc28j60_init(mac_addr);
 
+	dhcp_retry_time = RTC_GetCounter() + 1;
+
 	// Check if timer started.
 	uint8_t status = mfrc522_read(Status1Reg);
 
@@ -482,6 +499,9 @@ extern "C" int main(void)
 	// Workers.
 	while (1)
 	{
+		// If DHCPD expired or still not assigng request for new net settings.
+		while (dhcp_status != DHCP_ASSIGNED) dhcp_poll();
+
 		// If cached tag did request, the even is stored to queue, send it to server
 		// in main thread.
 		tag_event_queue_processor();

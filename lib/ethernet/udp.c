@@ -10,8 +10,15 @@ void udp_filter(eth_frame_t *frame, uint16_t len)
 
 	if(len >= sizeof(udp_packet_t))
 	{
-		udp_reply(frame, ntohs(udp->len) -
-			sizeof(udp_packet_t));
+		switch (udp->to_port)
+		{
+			case DHCP_CLIENT_PORT:
+				dhcp_filter(frame, ntohs(udp->len) - sizeof(udp_packet_t));
+				break;
+			default:
+				udp_reply(frame, ntohs(udp->len) - sizeof(udp_packet_t));
+				break;
+		}
 	}
 }
 
@@ -45,8 +52,8 @@ void udp_reply(eth_frame_t *frame, uint16_t len)
 // Если MAC-адрес узла/гейта ещё не определён, функция возвращает 0
 uint8_t udp_send(eth_frame_t *frame, uint16_t len)
 {
-    ip_packet_t *ip = (void*)(frame->data);
-    udp_packet_t *udp = (void*)(ip->data);
+    ip_packet_t *ip = (void *) (frame->data);
+    udp_packet_t *udp = (void *) (ip->data);
 
     len += sizeof(udp_packet_t);
 
@@ -56,7 +63,7 @@ uint8_t udp_send(eth_frame_t *frame, uint16_t len)
     udp->len = htons(len);
     udp->cksum = 0;
     udp->cksum = ip_cksum(len + IP_PROTOCOL_UDP,
-        (uint8_t*)udp-8, len+8);
+        (uint8_t *) udp - 8, len + 8);
 
     return ip_send(frame, len);
 }

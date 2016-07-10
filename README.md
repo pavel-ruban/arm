@@ -1,4 +1,4 @@
-## ARM-NONE-ABI-GCC STM32F103C8 RC522 ENC28J60
+## ARM-NONE-EABI-GCC STM32F103C8 RC522 ENC28J60
 
 **Author**  - Pavel Ruban http://pavelruban.org
 

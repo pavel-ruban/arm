@@ -1,11 +1,11 @@
 ## ARM-NONE-ABI-GCC STM32F103C8 RC522 ENC28J60
 
-@author Pavel Ruban http://pavelruban.org
+**Author**  - Pavel Ruban http://pavelruban.org
 
 This sources contain my and other people work (STM32 (CMSIS, headers), lifelover (great tutorial for ethernet ip / tcp and other stacks), and etc).
 
 **STM32f103c8t6 MCU** sources for arm-none-eabi-gcc toolchain
-**STM32 CMSIS libraray**, newlib stubs, support for -std=gnu++11 (classes, auto, templates, without dynamical memory allocation and standard c, c++ libraries)
+**STM32 CMSIS libraray**, **newlib** stubs, support for -std=gnu++11 (classes, auto, templates, without dynamical memory allocation and standard c, c++ libraries)
 
 **ASM** implementations of **memcpy** / **memset**
 

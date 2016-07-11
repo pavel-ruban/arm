@@ -227,6 +227,8 @@ void spi_hardware_failure_signal()
 	// @todo fire pink color for 1-1.5 seconds.
 }
 
+
+extern uint16_t enc28j60_rxrdpt;
 extern "C" void TIM2_IRQHandler()
 {
     open_node();
@@ -281,17 +283,25 @@ extern "C" void TIM2_IRQHandler()
 	// хотя коннект сохраняется, что вызывает провалы в доступности интерфейса на 3-10 секунд,
 	// пока интерфейс не поднимится по DHCP заного, однако если согласно LLSTAT линк выключен
 	// но мы не гасим интерфейс он продолжает нормально работать.
-	if(0 && !(phstat1 & PHSTAT1_LLSTAT))
+	if(!(phstat1 & PHSTAT1_LLSTAT))
 	{
-		// Обновим адрес через 5 секунд
-		//  (после того, как линк появится)
-		dhcp_status = DHCP_INIT;
-		dhcp_retry_time = RTC_GetCounter() + 3;
+		static uint16_t link_dhcp_time;
+		// Avoid frequently link checks.
+		if (ticks - link_dhcp_time > 5000)
+		{
+			link_dhcp_time = ticks;
+			// Обновим адрес через 5 секунд
+			//  (после того, как линк появится)
+			dhcp_status = DHCP_INIT;
+			dhcp_retry_time = RTC_GetCounter() + 2;
 
-		// Линка нет - опускаем интерфейс
-		ip_addr = 0;
-		ip_mask = 0;
-		ip_gateway = 0;
+			// Линка нет - опускаем интерфейс
+			ip_addr = 0;
+			ip_mask = 0;
+			ip_gateway = 0;
+
+			enc28j60_init(mac_addr);
+		}
 	}
     }
 }
@@ -515,7 +525,9 @@ extern "C" int main(void)
 	while (1)
 	{
 		// If DHCPD expired or still not assigng request for new net settings.
-		while (dhcp_status != DHCP_ASSIGNED) dhcp_poll();
+		while (dhcp_status != DHCP_ASSIGNED) {
+			dhcp_poll();
+		}
 
 		// If cached tag did request, the even is stored to queue, send it to server
 		// in main thread.
@@ -530,7 +542,7 @@ extern "C" int main(void)
 		if (ticks - dns_time > 600)
 		{
 			dns_time = ticks;
-			dns_query("wiki.pavelruban.org");
+			//dns_query("com");
 		}
 	}
 }
@@ -561,7 +573,6 @@ void interrupt_initialize()
 	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
 	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
 	EXTI_Init(&EXTI_InitStructure);
-	//EXTI_ClearITPendingBit(EXTI_Line0);
 
 	// RC522 1 board (PCD).
 	EXTI_InitStructure.EXTI_Line = EXTI_Line10;
@@ -569,7 +580,6 @@ void interrupt_initialize()
 	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
 	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
 	EXTI_Init(&EXTI_InitStructure);
-	//EXTI_ClearITPendingBit(EXTI_Line10);
 
 	// RC522 2 board (PCD).
 	EXTI_InitStructure.EXTI_Line = EXTI_Line11;
@@ -577,7 +587,6 @@ void interrupt_initialize()
 	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
 	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
 	EXTI_Init(&EXTI_InitStructure);
-	//EXTI_ClearITPendingBit(EXTI_Line11);
 
 	// ENC28J60
 	EXTI_InitStructure.EXTI_Line = EXTI_Line2;
@@ -585,7 +594,6 @@ void interrupt_initialize()
 	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
 	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
 	EXTI_Init(&EXTI_InitStructure);
-	//EXTI_ClearITPendingBit(EXTI_Line2);
 
 	// RC522 Timer And PICC Receive Interrupt.
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
@@ -593,7 +601,6 @@ void interrupt_initialize()
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x08;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
-	//NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
 
 	// IRQ Driven Button, used as human interface for opening EMI lock.
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI0_IRQn;
@@ -601,7 +608,6 @@ void interrupt_initialize()
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x03;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
-	//NVIC_ClearPendingIRQ(EXTI0_IRQn);
 
 	// ENC28J60 Interrupt for receinving packets.
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI2_IRQn;
@@ -609,7 +615,6 @@ void interrupt_initialize()
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x07;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
-	//NVIC_ClearPendingIRQ(EXTI2_IRQn);
 
 	// TIM2 timer, used as on second watchdog for enc28j60, rc522.
 	// Also do some periodical not priority calls.

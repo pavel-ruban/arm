@@ -20,3 +20,19 @@ void * memset(void *dst, int val, size_t count)
 
 	return dst;
 }
+
+int strncmp(const char *str1, const char *str2, size_t len)
+{
+    int s1;
+    int s2;
+    size_t i = 0;
+
+    do {
+        s1 = *str1++;
+        s2 = *str2++;
+	++i;
+        if (s1 == 0)
+            break;
+    } while (s1 == s2 && i < len);
+    return (s1 < s2) ? -1 : (s1 > s2);
+}

@@ -155,6 +155,8 @@ void dhcp_poll()
 		// Придумываем идентификатор транзакции
 		dhcp_transaction_id = ticks;
 
+		__disable_enc28j60_irq();
+
 		// Опускаем интерфейс (если истекла аренда)
 		ip_addr = 0;
 		ip_mask = 0;
@@ -182,6 +184,8 @@ void dhcp_poll()
 
 		udp_send(frame, (uint8_t *) op - (uint8_t *) dhcp);
 
+		__enable_enc28j60_irq();
+
 		// Ждём ответа (если не будет, снова
 		//  попробуем через 15 секунд)
 		dhcp_status = DHCP_WAITING_OFFER;
@@ -194,6 +198,8 @@ void dhcp_poll()
 	{
 		// Придумываем идентификатор транзакции
 		dhcp_transaction_id = ticks;
+
+		__disable_enc28j60_irq();
 
 		// Отправляем запрос
 		ip->to_addr = dhcp_server;
@@ -221,12 +227,17 @@ void dhcp_poll()
 
 		if(!udp_send(frame, (uint8_t*) op - (uint8_t*) dhcp))
 		{
+			
+			__enable_enc28j60_irq();
+
 			// Пакет не отправлен (видимо, адреса
 			//  сервера ещё нет в арп-кэше)
 			// попробуем снова через 5 секунд
 			dhcp_renew_time = RTC_GetCounter() + 1;
 			return;
 		}
+
+		__enable_enc28j60_irq();
 
 		// Ждём ответа
 		dhcp_status = DHCP_WAITING_ACK;

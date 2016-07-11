@@ -13,7 +13,7 @@
 #define DEST_IP_ADDR			inet_addr(192,168,0,43)
 #define IP_ADDR				inet_addr(192,168,0,74)
 #define IP_GATEWAY			inet_addr(192,168,0,1)
-#define DNS_SERVER_IP			inet_addr(192,168,1,113)
+#define DNS_SERVER_IP			inet_addr(192,168,0,43)
 #define IP_MASK 			inet_addr(255,255,255,0);
 #define APP_PORT			37208
 
@@ -468,3 +468,14 @@ extern dns_state_t dns_state;
 #define DNS_QUERY_TYPE_A	htons(0x0001)
 #define DNS_QUERY_CLASS_IN	htons(0x0001)
 #define DNS_FLAG_STD_QUERY	htons(0x0100)
+
+typedef struct httpd_status {
+	uint16_t statuscode;
+	uint16_t statuscode_saved;
+	uint16_t numbytes;
+	uint16_t numbytes_saved;
+	uint8_t *data;
+	uint8_t *data_saved;
+} httpd_status_t;
+
+extern httpd_status_t httpd_status;

@@ -53,3 +53,13 @@ uint16_t eth_recv_packet(uint8_t *buf, uint16_t buflen)
 {
 	return enc28j60_recv_packet(buf, buflen);
 }
+
+void __enable_enc28j60_irq()
+{
+	EXTI->IMR |= EXTI_IMR_MR2;
+}
+
+void __disable_enc28j60_irq()
+{
+	EXTI->IMR &= ~EXTI_IMR_MR2;
+}

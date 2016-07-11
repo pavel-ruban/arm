@@ -1,7 +1,5 @@
 #include <binds.h>
 
-extern char *term_var_info;
-
 uint8_t enc28j60_current_bank = 0;
 uint16_t enc28j60_rxrdpt = 0;
 uint8_t enc28j60_revid = 0;

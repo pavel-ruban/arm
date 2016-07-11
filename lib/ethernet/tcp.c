@@ -622,6 +622,82 @@ void tcp_write(uint8_t id, eth_frame_t *frame, uint16_t len)
 	char *request = (void *) tcp_get_data(tcp);
 }
 
+char *css_settings_form =
+
+"form {"
+	"border: 1px solid #f7f4f4;"
+	"width: 230px;"
+	"margin: auto;"
+	"padding: 35px;"
+	"background: white;"
+	"margin-top: 15px;"
+"}"
+"h1 {"
+	"text-align: center;"
+	"font-size: 23px;"
+"}"
+"body {"
+	"background: #efefef;"
+"}"
+"label {"
+	"margin-left: 38px;"
+	"display: inline-block;"
+"}"
+"input {"
+	"border: 1px #eaeaea solid;"
+"}"
+"input[type=\"checkbox\"] {"
+	"margin-left: 38px;"
+	"display: inline-block;"
+	"margin-bottom: 12px;"
+"}"
+"input[type=\"text\"] {"
+    "clear: right;"
+    "display: block;"
+    "margin: 0 auto 8px auto;"
+"}"
+"input[type=\"submit\"] {"
+    "margin: auto;"
+    "display: block;"
+    "margin-top: 22px;"
+    "width: 152px;"
+"}";
+
+char *html_settings_form =
+	"HTTP/1.1 200 OK\r\n"
+	"Content-Type: text/html\r\n"
+	"\r\n"
+	"<html>"
+		"<head>"
+			"<title>SOMI internal MCU settings form</title>"
+			"<link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\">"
+		"</head>"
+		"<body>"
+			"<h1>MCU Network Settings</h1>"
+			"<form>"
+				"<label for=\"mac_address\">MAC Adress:</label>"
+				"<input type=\"text\" name=\"mac_address\" />"
+				"<label for=\"dhcp\">DHCP:</label>"
+				"<input type=\"checkbox\" name=\"dhcp\" />"
+				"<label for=\"ip_address\">IP Adress:</label>"
+				"<input type=\"text\" name=\"ip_address\" />"
+				"<label for=\"net_mask\">Net Mask:</label>"
+				"<input type=\"text\" name=\"net_mask\" />"
+				"<label for=\"port\">Port:</label>"
+				"<input type=\"text\" name=\"port\" />"
+
+				"<label for=\"gateway\">Gateway:</label>"
+				"<input type=\"text\" name=\"gateway\" />"
+
+				"<label for=\"server\">Server Domain Or Ip:</label>"
+				"<input type=\"text\" name=\"server\" />"
+				"<label for=\"dns_server\">DNS Server:</label>"
+				"<input type=\"text\" name=\"server_addr\" />"
+				"<input type=\"submit\" value=\"ok\"/>"
+			"</form>"
+		"</body>"
+	"</html>\r\n";
+
 // upstream callback
 void tcp_read(uint8_t id, eth_frame_t *frame, uint8_t re)
 {
@@ -630,49 +706,57 @@ void tcp_read(uint8_t id, eth_frame_t *frame, uint8_t re)
 	char *buf = (void *) (tcp->data);
 	uint8_t options;
 
+	httpd_status_t *st = &httpd_status;
+
+	if (!st->data) {
+		if (strncmp("GET ", buf, 4)) return;
+
+		if (!strncmp("/ ", buf + 4, 2))
+		{
+			st->data = st->data_saved = html_settings_form;
+		}
+		else if (!strncmp("/styles.css", buf + 4, 11))
+		{
+			st->data = st->data_saved = css_settings_form;
+		}
+		else return;
+
+		st->numbytes = st->numbytes_saved = strlen(st->data);
+		st->statuscode = st->statuscode_saved = 200;
+	}
+
 	// нужен ретрансмит?
 	if (re)
 	{
 		// загружаемся
-	//	st->statuscode = st->statuscode_saved;
-	//	st->numbytes = st->numbytes_saved;
-	//	st->data = st->data_saved;
+		st->statuscode = st->statuscode_saved;
+		st->numbytes = st->numbytes_saved;
+		st->data = st->data_saved;
 	}
 	else
 	{
 		// сохраняемся перед отправкой пакета
-	//	st->statuscode_saved = st->statuscode;
-	//	st->numbytes_saved = st->numbytes;
-	//	st->data_saved = st->data;
+		st->statuscode_saved = st->statuscode;
+		st->numbytes_saved = st->numbytes;
+		st->data_saved = st->data;
 	}
 
-	{
-		memcpy(tcp->data,
-				"HTTP/1.1 200 OK\r\n"
-				"Content-Type: text/html\r\n"
-				"\r\n"
-				"<html>"
-					"<head>"
-						"<title>SOMI internal MCU settings form</title>"
-					"</head>"
-					"<body>"
-						"<form>"
-							"<label for=\"mac_address\">MAC Adress:</label>"
-							"<input type=\"text\" name=\"mac_address\" />"
-							"<label for=\"ip_address\">IP Adress:</label>"
-							"<input type=\"text\" name=\"ip_address\" />"
-							"<label for=\"port\">Port:</label>"
-							"<input type=\"text\" name=\"port\" />"
-							"<label for=\"net_mask\">Net Mask:</label>"
-							"<input type=\"text\" name=\"net_mask\" />"
-							"<input type=\"submit\" value=\"ok\"/>"
-						"</form>"
-					"</body>"
-				"</html>\r\n"
-				,
-				448);
-		tcp_send(id, frame, 448, TCP_OPTION_CLOSE);
-		return;
+	uint16_t segment_bytes = st->numbytes > TCP_SYN_MSS
+		? TCP_SYN_MSS
+		: st->numbytes;
+
+	memcpy(tcp->data, st->data, segment_bytes);
+
+	st->numbytes -= segment_bytes;
+	st->data += segment_bytes;
+
+	options = 0;
+	// Если все данные отданы закрываем соединение.
+	if (!st->numbytes) {
+		st->data = 0;
+		options |= TCP_OPTION_CLOSE;
 	}
+
+	tcp_send(id, frame, segment_bytes, options);
 }
 

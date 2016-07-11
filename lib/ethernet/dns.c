@@ -10,7 +10,7 @@ void dns_query(char *domain)
 	dns_packet_t *dns = (dns_packet_t *) udp->data;
 
 	// Otherwise received packets would override our generated one.
-	__disable_irq();
+	__disable_enc28j60_irq();
 
 	ip->to_addr = dns_ip_addr;
 
@@ -30,7 +30,7 @@ void dns_query(char *domain)
 
 	udp_send(frame, question_ptr - udp->data);
 
-	__enable_irq();
+	__enable_enc28j60_irq();
 }
 
 void dns_filter(eth_frame_t *frame, uint16_t len)

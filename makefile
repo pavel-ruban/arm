@@ -1,12 +1,14 @@
 # setup
-
-COMPILE_OPTS = -mcpu=cortex-m3 -mthumb -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000 -Wall
+TARGET_OPTS = -mcpu=cortex-m3 -mthumb
+COMPILE_OPTS = $(TARGET_OPTS) -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -DHSE_VALUE=8000000 -Wall
 INCLUDE_DIRS = -I include -I system/include/cmsis -I system/include/stm32f1-stdperiph -I system/include -I binds/include -I /usr/local/include/include -I lib/ethernet -I lib/enc28j60
 
 LIBS_INCLUDE_DIRS = -I $(HARDWARE_LIBS_DIR)/rc522
 INCLUDE_DIRS += $(LIBS_INCLUDE_DIRS)
 
 LIBRARY_DIRS = -L lib -L /usr/local/lib/
+
+LIBSTDC := $(shell arm-none-eabi-gcc $(TARGET_OPTS) -print-file-name=libgcov.a)
 
 GDB = arm-none-eabi-gdb
 CC = arm-none-eabi-gcc
@@ -18,7 +20,7 @@ CXXFLAGS = $(COMPILE_OPTS) $(INCLUDE_DIRS) -std=gnu++11 -fno-rtti -fno-exception
 AS = arm-none-eabi-gcc
 ASFLAGS = $(COMPILE_OPTS) $(INCLUDE_DIRS) -c
 
-LD = arm-none-eabi-g++
+LD = arm-none-eabi-gcc
 
 LDFLAGS = -Wl,--gc-sections,-Map=$@.map,-cref,-u,Reset_Handler $(INCLUDE_DIRS) $(LIBRARY_DIRS) -T mem.ld -T sections.ld -L ldscripts -nostartfiles -nodefaultlibs  -nostdlib
 
@@ -59,18 +61,12 @@ LIBSTM32_OUT = lib/libstm32.a
 BINDS_OUT = $(BINDS_DIR)/binds.a
 HARDWARE_LIBS_OUT = $(HARDWARE_LIBS_DIR)/hardware_libs.a
 
-memcpy-armv7m.o: memcpy-armv7m.S
-	$(CC) $(CFLAGS) -c $< -o $@
-
-memset-armv7m.o: memset-armv7m.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
 FIRMWARE_OBJS = c_entry.o entry.o newlib_stubs.o
-STD_LIB_OBJS = memcpy-armv7m.o memset-armv7m.o
+STDLIB_OBJS = memcpy-armv7m.o stdlibc.o
 
 # main
-$(FIRMWARE_ELF): $(FIRMWARE_OBJS) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) $(HARDWARE_LIBS_OUT) $(STD_LIB_OBJS)
-	$(LD) $(LDFLAGS) c_entry.o entry.o $(HARDWARE_LIBS_OUT) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) newlib_stubs.o memcpy-armv7m.o memset-armv7m.o --output $@
+$(FIRMWARE_ELF): $(FIRMWARE_OBJS) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) $(HARDWARE_LIBS_OUT) $(STDLIB_OBJS)
+	$(LD) $(LDFLAGS) c_entry.o entry.o $(HARDWARE_LIBS_OUT) $(BINDS_OUT) $(LIBSTM32_OUT) $(NEWLIB_OUT) newlib_stubs.o $(STDLIB_OBJS) --output $@
 
 $(FIRMWARE_BIN): $(FIRMWARE_ELF)
 	$(OBJCP) $(OBJCPFLAGS) $< $@
@@ -161,6 +157,7 @@ HARDWARE_LIBS_OBJS = 					\
 	$(HARDWARE_LIBS_DIR)/ethernet/tcp.o		\
 	$(HARDWARE_LIBS_DIR)/ethernet/dhcp.o		\
 	$(HARDWARE_LIBS_DIR)/ethernet/udp.o		\
+	$(HARDWARE_LIBS_DIR)/ethernet/dns.o		\
 	$(HARDWARE_LIBS_DIR)/enc28j60/enc28j60.o
 
 $(HARDWARE_LIBS_OUT): $(HARDWARE_LIBS_OBJS)

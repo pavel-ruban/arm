@@ -8,14 +8,12 @@
  */
 #define WITH_ICMP
 
+// Defaults
 #define MAC_ADDR			{0x00,0x4e,0x42,0x4c,0x55,0x46}
-// In case of external requests, the dest mac address should be the GATEWAY MAC ADDRESS.
-//#define DEST_MAC_ADDR			{0x54,0x04,0xa6,0x3f,0xaf,0xc1}
-#define DEST_MAC_ADDR			{0x00,0x24,0x1d,0xc6,0x90,0xc5}
-//#define DEST_MAC_ADDR			{0xc8,0xd3,0xa3,0x4b,0x78,0x5c}
 #define DEST_IP_ADDR			inet_addr(192,168,0,43)
 #define IP_ADDR				inet_addr(192,168,0,74)
 #define IP_GATEWAY			inet_addr(192,168,0,1)
+#define DNS_SERVER_IP			inet_addr(192,168,1,113)
 #define IP_MASK 			inet_addr(255,255,255,0);
 #define APP_PORT			37208
 
@@ -398,3 +396,75 @@ extern uint32_t dhcp_retry_time; // время повторной попытки
 
 void dhcp_filter(eth_frame_t *frame, uint16_t len);
 void dhcp_poll();
+
+#define DNS_CLIENT_PORT		htons(58491)
+#define DNS_SERVER_PORT		htons(53)
+
+extern uint32_t dns_ip_addr;
+
+void dns_filter(eth_frame_t *frame, uint16_t len);
+void dns_query(char *domain);
+
+typedef struct dns_packet {
+	uint16_t id;
+	uint16_t flags;
+	uint16_t questions;
+	uint16_t answer_rrs;
+	uint16_t authority_rrs;
+	uint16_t additional_rrs;
+	uint8_t data[];
+} dns_packet_t;
+
+typedef struct dns_query {
+	uint16_t type;
+	uint16_t qclass;
+	uint8_t *domain;
+} dns_query_t;
+
+typedef struct dns_rrecord {
+	uint16_t name;
+	uint16_t type;
+	uint16_t rclass;
+	uint16_t ttl;
+	uint16_t rdlength;
+	uint8_t data[];
+} dns_rrecord_t;
+
+typedef struct dns_state {
+	uint16_t id;
+} dns_state_t;
+
+extern dns_state_t dns_state;
+
+// Эта штука добавляет опцию в пакет и
+//  сдвигает указатель к концу опции
+//   ptr - указатель на начало опции
+#define dns_add_question(ptr, domain, len, type, qclass)	\
+	*ptr++ = len;						\
+	memcpy((void *) ptr, domain, len);			\
+	ptr += len;						\
+	*ptr++ = 0x0;						\
+	*((uint16_t *) ptr) = type;				\
+	ptr += sizeof(uint16_t);				\
+	*((uint16_t *) ptr) = qclass;				\
+	ptr += sizeof(uint16_t);
+
+// Эта штука добавляет resource record в пакет и
+//  сдвигает указатель к концу resource record
+//   ptr - указатель на начало опции
+#define dns_add_rrecord(ptr, rr, len)				\
+	*ptr++ = 0;						\
+	*((uint16_t *) ptr) = htons(0x0029);			\
+	ptr += sizeof(uint16_t);				\
+	*((uint16_t *) ptr) = htons(512);			\
+	ptr += sizeof(uint16_t);				\
+	*ptr++ = 0;						\
+	*ptr++ = 0;						\
+	*((uint16_t *) ptr) = htons(0x8000);			\
+	ptr += sizeof(uint16_t);				\
+	*((uint16_t *) ptr) = htons(0);				\
+	ptr += sizeof(uint16_t);
+
+#define DNS_QUERY_TYPE_A	htons(0x0001)
+#define DNS_QUERY_CLASS_IN	htons(0x0001)
+#define DNS_FLAG_STD_QUERY	htons(0x0100)

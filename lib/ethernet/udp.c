@@ -5,8 +5,8 @@
  */
 void udp_filter(eth_frame_t *frame, uint16_t len)
 {
-	ip_packet_t *ip = (void*)(frame->data);
-	udp_packet_t *udp = (void*)(ip->data);
+	ip_packet_t *ip = (void *) (frame->data);
+	udp_packet_t *udp = (void *) (ip->data);
 
 	if(len >= sizeof(udp_packet_t))
 	{
@@ -15,6 +15,12 @@ void udp_filter(eth_frame_t *frame, uint16_t len)
 			case DHCP_CLIENT_PORT:
 				dhcp_filter(frame, ntohs(udp->len) - sizeof(udp_packet_t));
 				break;
+
+
+			case DNS_CLIENT_PORT:
+				dns_filter(frame, ntohs(udp->len) - sizeof(udp_packet_t));
+				break;
+
 			default:
 				udp_reply(frame, ntohs(udp->len) - sizeof(udp_packet_t));
 				break;

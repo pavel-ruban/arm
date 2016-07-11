@@ -11,5 +11,6 @@ extern volatile uint32_t ticks;
 
 void *memcpy(void *s1, const void *s2, size_t n);
 void *memset(void *dst, int val, size_t count);
+size_t strlen(const char* str);
 
 void Delay(vu32 nCount);

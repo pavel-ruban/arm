@@ -296,7 +296,7 @@ extern "C" void TIM2_IRQHandler()
     }
 }
 
-extern "C" void SysTick_Handler (void)
+extern "C" void SysTick_Handler(void)
 {
 	ticks++;
 
@@ -502,7 +502,7 @@ extern "C" int main(void)
 
 	// Check if timer started.
 	uint8_t status = mfrc522_read(Status1Reg);
-	uint32_t poll_time;
+	uint32_t poll_time, dns_time;
 
 	__enable_irq();
 
@@ -521,8 +521,17 @@ extern "C" int main(void)
 		// in main thread.
 		tag_event_queue_processor();
 
-		if (ticks - poll_time > 100)
+		if (ticks - poll_time > 600)
+		{
+			poll_time = ticks;
 			tcp_poll();
+		}
+
+		if (ticks - dns_time > 600)
+		{
+			dns_time = ticks;
+			dns_query("wiki.pavelruban.org");
+		}
 	}
 }
 

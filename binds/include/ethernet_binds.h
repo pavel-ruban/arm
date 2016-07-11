@@ -18,7 +18,6 @@ void enc28j60_select();
 void enc28j60_release();
 void enc28j60_set_pins();
 
-extern uint8_t dest_mac_addr[6];
 extern uint8_t mac_addr[6];
 extern uint32_t ip_addr;
 extern uint32_t ip_mask;
